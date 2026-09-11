@@ -1,0 +1,29 @@
+ Volume in drive C is Windows
+ Volume Serial Number is 84A6-4DB9
+
+ Directory of C:\Users\PRIME\Desktop\alfa
+
+2026/07/29  03:48    <DIR>          .
+2026/07/29  01:25    <DIR>          ..
+2024/09/02  08:36               391 .gitignore
+2026/07/29  03:42    <DIR>          .next
+2026/07/28  19:09    <DIR>          app
+2026/07/28  19:09    <DIR>          components
+2024/09/02  08:36               341 components.json
+2026/07/29  03:48                 0 debug_dir.txt
+2024/09/02  08:36                73 jsconfig.json
+2026/07/28  19:09    <DIR>          lib
+2024/09/02  08:36               197 middleware.js
+2024/09/02  08:36               207 next.config.mjs
+2026/07/29  03:48               792 next_version.txt
+2026/07/29  03:46    <DIR>          node_modules
+2026/07/29  03:19           157ÿ903 package-lock.json
+2024/09/02  08:36             1ÿ092 package.json
+2024/09/02  08:36                83 postcss.config.js
+2026/07/28  19:09    <DIR>          public
+2024/09/02  08:36             1ÿ382 README.md
+2024/09/02  08:36             2ÿ131 tailwind.config.js
+2026/07/29  03:48                 8 test_output.txt
+2026/07/28  19:09    <DIR>          utils
+              13 File(s)        164ÿ600 bytes
+               9 Dir(s)  93ÿ587ÿ034ÿ112 bytes free

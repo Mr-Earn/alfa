@@ -1,0 +1,194 @@
+{
+  "maintenance": [
+    {
+      "id": 1,
+      "title": "Wi-Fi outage",
+      "status": "In Progress",
+      "owner": "Facilities"
+    },
+    {
+      "id": 2,
+      "title": "Broken desk drawer",
+      "status": "Open",
+      "owner": "Housekeeping"
+    }
+  ],
+  "waitingList": [
+    {
+      "name": "Student",
+      "course": "near-campus",
+      "budget": "1800 ZAR",
+      "queue": 8
+    },
+    {
+      "name": "Student",
+      "course": "near-campus",
+      "budget": "1800 ZAR",
+      "queue": 7
+    },
+    {
+      "name": "Student",
+      "course": "near-campus",
+      "budget": "1800 ZAR",
+      "queue": 6
+    },
+    {
+      "name": "Lerato M.",
+      "course": "BCom Accounting",
+      "budget": "R7,000",
+      "queue": 3
+    },
+    {
+      "name": "Sipho K.",
+      "course": "Mechanical Engineering",
+      "budget": "R8,200",
+      "queue": 6
+    }
+  ],
+  "visitors": [
+    {
+      "name": "Mpho L.",
+      "purpose": "Family visit",
+      "status": "Approved",
+      "overnight": false
+    },
+    {
+      "name": "Sizwe T.",
+      "purpose": "Study group",
+      "status": "Pending",
+      "overnight": true
+    }
+  ],
+  "inspections": [
+    {
+      "title": "Move-in inspection",
+      "date": "Aug 10",
+      "status": "Scheduled"
+    },
+    {
+      "title": "Mid-term inspection",
+      "date": "Sep 14",
+      "status": "Planned"
+    }
+  ],
+  "events": [
+    {
+      "title": "Orientation Mixer",
+      "date": "Aug 12",
+      "attendees": 42,
+      "category": "Orientation"
+    },
+    {
+      "title": "Residence Q&A",
+      "date": "Aug 22",
+      "attendees": 29,
+      "category": "Meeting"
+    }
+  ],
+  "agreements": [
+    {
+      "title": "Lease agreement - Riverview Residence",
+      "party": "Student & Owner",
+      "status": "Signed"
+    }
+  ],
+  "accreditations": [
+    {
+      "title": "Residence accreditation",
+      "status": "Pending"
+    },
+    {
+      "title": "Residence accreditation",
+      "status": "Pending"
+    },
+    {
+      "title": "University accreditation",
+      "status": "Verified"
+    }
+  ],
+  "auditTrail": [
+    {
+      "action": "Accreditation updated: Residence accreditation",
+      "detail": "Pending"
+    },
+    {
+      "action": "Accreditation updated: Residence accreditation",
+      "detail": "Pending"
+    },
+    {
+      "action": "Lease signed",
+      "detail": "Riverview Residence"
+    },
+    {
+      "action": "Accreditation verified",
+      "detail": "University review complete"
+    }
+  ],
+  "parentPortal": [
+    {
+      "title": "July rent statement",
+      "amount": "R6,800",
+      "status": "Sent"
+    },
+    {
+      "title": "Deposit acknowledgement",
+      "amount": "R1,500",
+      "status": "Received"
+    }
+  ],
+  "communications": [
+    {
+      "title": "Wi-Fi maintenance",
+      "type": "Announcement",
+      "detail": "Scheduled for tomorrow between 10:00 and 12:00.",
+      "priority": "Normal"
+    },
+    {
+      "title": "Late-night noise concern",
+      "type": "Support ticket",
+      "detail": "Resident reported a repeated noise issue near block B.",
+      "priority": "High"
+    }
+  ],
+  "invoices": [
+    {
+      "title": "August rent invoice",
+      "amount": "R6,800",
+      "dueDate": "2026-08-10",
+      "status": "Pending"
+    },
+    {
+      "title": "Deposit invoice",
+      "amount": "R1,500",
+      "dueDate": "2026-08-15",
+      "status": "Paid"
+    }
+  ],
+  "loyalty": {
+    "points": 1340,
+    "activity": [
+      {
+        "title": "Profile completed",
+        "detail": "+100 pts"
+      },
+      {
+        "title": "Profile completed",
+        "detail": "+100 pts"
+      },
+      {
+        "title": "Rent paid on time",
+        "detail": "+300 pts"
+      }
+    ]
+  },
+  "attendance": [
+    {
+      "eventTitle": "Orientation Mixer",
+      "status": "Registered"
+    },
+    {
+      "eventTitle": "Residence Q&A",
+      "status": "Reminder sent"
+    }
+  ]
+}
