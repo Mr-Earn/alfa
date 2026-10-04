@@ -24,8 +24,8 @@ function Header() {
   const role = isSignedIn ? normalizeRole(user?.user_metadata?.role || 'student') : 'guest'
   const showPostAd = isSignedIn && ['owner', 'admin', 'university'].includes(role)
   const showStudentHub = isSignedIn && role === 'student'
-  const showRentNav = role !== 'owner'
-  const showAgentFinderNav = role !== 'owner'
+  const showRentNav = !['owner', 'admin'].includes(role)
+  const showAgentFinderNav = !['owner', 'admin'].includes(role)
   const isUniversityRoute = path?.startsWith('/user/university')
   const universityTabs = [
     { href: '/user/university', label: 'Overview' },

@@ -193,6 +193,7 @@ export async function PUT(request) {
     bedroom: body?.bedroom !== undefined ? Number(body.bedroom) : undefined,
     bathroom: body?.bathroom !== undefined ? Number(body.bathroom) : undefined,
     price: body?.price !== undefined ? Number(body.price) : undefined,
+    active: body?.active !== undefined ? Boolean(body.active) : undefined,
     propertyType: body?.propertyType ?? body?.propertytype,
     type: body?.type,
     coordinates: body?.coordinates,

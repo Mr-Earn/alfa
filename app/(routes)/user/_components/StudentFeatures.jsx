@@ -29,6 +29,54 @@ const defaultMaintenance = {
   urgency: 'medium',
 }
 
+function scoreListing(listing, preferences) {
+  const text = `${listing.title || ''} ${listing.description || ''} ${listing.address || ''} ${listing.propertyType || listing.propertytype || ''}`.toLowerCase()
+  const budget = Number(preferences.budget)
+  const price = Number(listing.price)
+  let earned = 0
+  let possible = 0
+  const reasons = []
+
+  if (budget > 0 && Number.isFinite(price) && price > 0) {
+    possible += 45
+    const ratio = price / budget
+    const points = ratio <= 0.8 ? 45 : ratio <= 1 ? 40 : ratio <= 1.2 ? 25 : 0
+    earned += points
+    reasons.push(points ? (ratio <= 1 ? 'Within budget' : 'Slightly over budget') : 'Over budget')
+  }
+
+  if (preferences.campus === 'near-campus') {
+    if (listing.address || listing.title || listing.description) {
+      possible += 25
+      const matches = /campus|university|student|college/.test(text)
+      if (matches) earned += 25
+      reasons.push(matches ? 'Near-campus details found' : 'Campus proximity not mentioned')
+    }
+  } else {
+    possible += 25
+    const matches = preferences.campus === 'private-room'
+      ? /private room|room|studio/.test(text)
+      : /shared|flat|apartment/.test(text)
+    if (matches) earned += 25
+    reasons.push(matches ? 'Preferred accommodation type' : 'Type not clearly listed')
+  }
+
+  possible += 15
+  const lifestyleTerms = preferences.lifestyle === 'quiet'
+    ? /quiet|peaceful|calm|study|tranquil/
+    : preferences.lifestyle === 'social'
+      ? /social|communal|shared|common area|entertainment/
+      : /study|desk|internet|quiet|student/
+  const lifestyleMatches = lifestyleTerms.test(text)
+  if (lifestyleMatches) earned += 15
+  reasons.push(lifestyleMatches ? 'Lifestyle details match' : 'Lifestyle details not mentioned')
+
+  return {
+    score: possible ? Math.round((earned / possible) * 100) : 0,
+    reasons,
+  }
+}
+
 export default function StudentFeatures({ role }) {
   const [recommendationForm, setRecommendationForm] = useState(defaultRecommendation)
   const [roommatePreferences, setRoommatePreferences] = useState(defaultRoommatePreferences)
@@ -143,47 +191,11 @@ export default function StudentFeatures({ role }) {
     loadAvailableListings()
   }, [])
 
-  const recommendationScore = useMemo(() => {
-    let score = 56
-    const budget = Number(recommendationForm.budget || 0)
-    if (budget <= 1800) score += 14
-    if (recommendationForm.campus === 'near-campus') score += 10
-    if (recommendationForm.lifestyle === 'quiet') score += 10
-    if (recommendationForm.lifestyle === 'social') score += 6
-    return Math.min(score, 95)
-  }, [recommendationForm])
-
-  const recommendationLabel = recommendationScore > 85
-    ? 'Premium shared apartment near campus'
-    : recommendationScore > 70
-      ? 'Private room in a well-reviewed residence'
-      : 'Budget-friendly shared space'
-
   const recommendedListings = useMemo(() => {
-    const budget = Number(recommendationForm.budget || 0)
-    const preferredType = recommendationForm.campus === 'private-room' ? 'room' : 'shared'
-    const lifestyleTerms = recommendationForm.lifestyle === 'quiet'
-      ? ['quiet', 'peaceful', 'calm']
-      : recommendationForm.lifestyle === 'social'
-        ? ['social', 'communal', 'shared']
-        : ['study', 'student', 'quiet']
-
     return availableListings
       .map((listing) => {
-        const searchableText = `${listing.title || ''} ${listing.description || ''} ${listing.address || ''} ${listing.propertyType || ''}`.toLowerCase()
-        let score = 0
-        const price = Number(listing.price || 0)
-
-        if (budget > 0 && price <= budget) score += 50
-        else if (budget > 0 && price <= budget * 1.2) score += 35
-        else if (budget === 0) score += 25
-
-        if (recommendationForm.campus === 'near-campus' && /campus|university|student/.test(searchableText)) score += 25
-        if (recommendationForm.campus !== 'near-campus' && searchableText.includes(preferredType)) score += 20
-        if (lifestyleTerms.some((term) => searchableText.includes(term))) score += 15
-        if (listing.active !== false) score += 10
-
-        return { listing, score: Math.min(score, 100) }
+        const { score, reasons } = scoreListing(listing, recommendationForm)
+        return { listing, score, reasons }
       })
       .sort((first, second) => second.score - first.score || Number(first.listing.price || 0) - Number(second.listing.price || 0))
       .slice(0, 3)
@@ -337,8 +349,16 @@ export default function StudentFeatures({ role }) {
           <Button type="submit" className="w-full">Save preferences</Button>
         </form>
         <div className="mt-4 rounded-xl bg-slate-50 p-3 text-sm text-slate-600">
-          <p className="font-semibold text-slate-900">Recommended match: {recommendationLabel}</p>
-          <p className="mt-1">Match score: {recommendationScore}%</p>
+          <p className="font-semibold text-slate-900">
+            {recommendedListings.length
+              ? `Best match: ${recommendedListings[0].listing.title || 'Rental listing'}`
+              : loadingRecommendations ? 'Finding your best match...' : 'Your preferences are ready'}
+          </p>
+          <p className="mt-1">
+            {recommendedListings.length
+              ? `${recommendedListings[0].score}% preference fit, based on available listing details.`
+              : 'Matches are ranked by budget, accommodation type or campus proximity, and lifestyle.'}
+          </p>
         </div>
         <div className="mt-4 border-t border-slate-200 pt-4">
           <div className="mb-3 flex items-center justify-between gap-2">
@@ -349,12 +369,13 @@ export default function StudentFeatures({ role }) {
             <p className="text-sm text-slate-500">Finding homes that fit your preferences...</p>
           ) : recommendedListings.length ? (
             <div className="space-y-3">
-              {recommendedListings.map(({ listing, score }) => (
+              {recommendedListings.map(({ listing, score, reasons }) => (
                 <div key={listing.id} className="relative overflow-hidden rounded-xl border border-slate-200">
                   <div className="absolute right-2 top-2 z-10 rounded-full bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-700">
                     {score}% match
                   </div>
                   <ListingCard listing={listing} availabilityCount={0} />
+                  <p className="px-3 pb-3 text-xs text-slate-600">{reasons.join(' · ')}</p>
                 </div>
               ))}
             </div>

@@ -127,6 +127,7 @@ async function readFromSupabase() {
       owner: item.owner,
     })),
     waitingList: (waitingListData || []).map((item) => ({
+      id: item.id,
       name: item.name,
       course: item.course,
       budget: item.budget,
@@ -167,6 +168,7 @@ async function readFromSupabase() {
       status: item.status,
     })),
     communications: (communicationsData || []).map((item) => ({
+      id: item.id,
       title: item.title,
       type: item.type,
       detail: item.detail,
