@@ -1,10 +1,9 @@
 "use client"
 
 import React, { useEffect, useMemo, useState } from 'react'
-import { supabase } from '@/utils/supabase/client'
 import { BadgeCheck, Clock3, Sparkles, Store, Users, Wrench } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import ListingCard from '@/app/_components/ListingCard'
+import Link from 'next/link'
 import AdvancedStudentModules from './AdvancedStudentModules'
 import { getAuthenticatedRequestHeaders } from '@/lib/permissions'
 
@@ -29,62 +28,12 @@ const defaultMaintenance = {
   urgency: 'medium',
 }
 
-function scoreListing(listing, preferences) {
-  const text = `${listing.title || ''} ${listing.description || ''} ${listing.address || ''} ${listing.propertyType || listing.propertytype || ''}`.toLowerCase()
-  const budget = Number(preferences.budget)
-  const price = Number(listing.price)
-  let earned = 0
-  let possible = 0
-  const reasons = []
-
-  if (budget > 0 && Number.isFinite(price) && price > 0) {
-    possible += 45
-    const ratio = price / budget
-    const points = ratio <= 0.8 ? 45 : ratio <= 1 ? 40 : ratio <= 1.2 ? 25 : 0
-    earned += points
-    reasons.push(points ? (ratio <= 1 ? 'Within budget' : 'Slightly over budget') : 'Over budget')
-  }
-
-  if (preferences.campus === 'near-campus') {
-    if (listing.address || listing.title || listing.description) {
-      possible += 25
-      const matches = /campus|university|student|college/.test(text)
-      if (matches) earned += 25
-      reasons.push(matches ? 'Near-campus details found' : 'Campus proximity not mentioned')
-    }
-  } else {
-    possible += 25
-    const matches = preferences.campus === 'private-room'
-      ? /private room|room|studio/.test(text)
-      : /shared|flat|apartment/.test(text)
-    if (matches) earned += 25
-    reasons.push(matches ? 'Preferred accommodation type' : 'Type not clearly listed')
-  }
-
-  possible += 15
-  const lifestyleTerms = preferences.lifestyle === 'quiet'
-    ? /quiet|peaceful|calm|study|tranquil/
-    : preferences.lifestyle === 'social'
-      ? /social|communal|shared|common area|entertainment/
-      : /study|desk|internet|quiet|student/
-  const lifestyleMatches = lifestyleTerms.test(text)
-  if (lifestyleMatches) earned += 15
-  reasons.push(lifestyleMatches ? 'Lifestyle details match' : 'Lifestyle details not mentioned')
-
-  return {
-    score: possible ? Math.round((earned / possible) * 100) : 0,
-    reasons,
-  }
-}
-
 export default function StudentFeatures({ role }) {
   const [recommendationForm, setRecommendationForm] = useState(defaultRecommendation)
   const [roommatePreferences, setRoommatePreferences] = useState(defaultRoommatePreferences)
   const [maintenanceForm, setMaintenanceForm] = useState(defaultMaintenance)
   const [maintenanceRequests, setMaintenanceRequests] = useState([])
   const [waitingList, setWaitingList] = useState(null)
-  const [availableListings, setAvailableListings] = useState([])
-  const [loadingRecommendations, setLoadingRecommendations] = useState(true)
   const [roommateMatches, setRoommateMatches] = useState([])
   const [loadingRoommateMatches, setLoadingRoommateMatches] = useState(true)
 
@@ -174,33 +123,6 @@ export default function StudentFeatures({ role }) {
     loadStudentHubData()
   }, [recommendationForm.budget, recommendationForm.campus])
 
-  useEffect(() => {
-    const loadAvailableListings = async () => {
-      try {
-        const response = await fetch('/api/listings-public?type=Rent')
-        const data = await response.json()
-        setAvailableListings(Array.isArray(data?.listings) ? data.listings : [])
-      } catch (error) {
-        console.warn('Unable to load accommodation recommendations', error)
-        setAvailableListings([])
-      } finally {
-        setLoadingRecommendations(false)
-      }
-    }
-
-    loadAvailableListings()
-  }, [])
-
-  const recommendedListings = useMemo(() => {
-    return availableListings
-      .map((listing) => {
-        const { score, reasons } = scoreListing(listing, recommendationForm)
-        return { listing, score, reasons }
-      })
-      .sort((first, second) => second.score - first.score || Number(first.listing.price || 0) - Number(second.listing.price || 0))
-      .slice(0, 3)
-  }, [availableListings, recommendationForm])
-
   const roommateScore = useMemo(() => {
     let score = 62
 
@@ -213,27 +135,6 @@ export default function StudentFeatures({ role }) {
 
     return Math.min(score, 94)
   }, [roommatePreferences])
-
-  const handleRecommendationSubmit = async (event) => {
-    event.preventDefault()
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('student_recommendation_preferences', JSON.stringify(recommendationForm))
-    }
-
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      await fetch('/api/student-hub', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'maintenance',
-          entry: { title: 'Preference update', description: `Budget ${recommendationForm.budget} • ${recommendationForm.campus} • ${recommendationForm.lifestyle}`, owner: user?.email || 'student' },
-        }),
-      })
-    } catch (error) {
-      console.warn('Failed to sync recommendation data', error)
-    }
-  }
 
   const handleRoommateSubmit = (event) => {
     event.preventDefault()
@@ -310,79 +211,12 @@ export default function StudentFeatures({ role }) {
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="mb-4 flex items-center gap-2">
           <Sparkles className="h-5 w-5 text-blue-600" />
-          <h3 className="text-lg font-semibold text-slate-900">AI accommodation matching</h3>
+          <h3 className="text-lg font-semibold text-slate-900">Accommodation recommendations</h3>
         </div>
-        <form onSubmit={handleRecommendationSubmit} className="space-y-3">
-          <label className="block text-sm text-slate-700">
-            Budget (ZAR)
-            <input
-              type="number"
-              value={recommendationForm.budget}
-              onChange={(event) => setRecommendationForm({ ...recommendationForm, budget: event.target.value })}
-              className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2"
-            />
-          </label>
-          <label className="block text-sm text-slate-700">
-            Preferred location
-            <select
-              value={recommendationForm.campus}
-              onChange={(event) => setRecommendationForm({ ...recommendationForm, campus: event.target.value })}
-              className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2"
-            >
-              <option value="near-campus">Near campus</option>
-              <option value="shared-flat">Shared flat</option>
-              <option value="private-room">Private room</option>
-            </select>
-          </label>
-          <label className="block text-sm text-slate-700">
-            Lifestyle
-            <select
-              value={recommendationForm.lifestyle}
-              onChange={(event) => setRecommendationForm({ ...recommendationForm, lifestyle: event.target.value })}
-              className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2"
-            >
-              <option value="quiet">Quiet</option>
-              <option value="social">Social</option>
-              <option value="study-focused">Study-focused</option>
-            </select>
-          </label>
-          <Button type="submit" className="w-full">Save preferences</Button>
-        </form>
-        <div className="mt-4 rounded-xl bg-slate-50 p-3 text-sm text-slate-600">
-          <p className="font-semibold text-slate-900">
-            {recommendedListings.length
-              ? `Best match: ${recommendedListings[0].listing.title || 'Rental listing'}`
-              : loadingRecommendations ? 'Finding your best match...' : 'Your preferences are ready'}
-          </p>
-          <p className="mt-1">
-            {recommendedListings.length
-              ? `${recommendedListings[0].score}% preference fit, based on available listing details.`
-              : 'Matches are ranked by budget, accommodation type or campus proximity, and lifestyle.'}
-          </p>
-        </div>
-        <div className="mt-4 border-t border-slate-200 pt-4">
-          <div className="mb-3 flex items-center justify-between gap-2">
-            <h4 className="font-semibold text-slate-900">Recommended homes</h4>
-            {!loadingRecommendations && <span className="text-xs text-slate-500">Top {recommendedListings.length} matches</span>}
-          </div>
-          {loadingRecommendations ? (
-            <p className="text-sm text-slate-500">Finding homes that fit your preferences...</p>
-          ) : recommendedListings.length ? (
-            <div className="space-y-3">
-              {recommendedListings.map(({ listing, score, reasons }) => (
-                <div key={listing.id} className="relative overflow-hidden rounded-xl border border-slate-200">
-                  <div className="absolute right-2 top-2 z-10 rounded-full bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-700">
-                    {score}% match
-                  </div>
-                  <ListingCard listing={listing} availabilityCount={0} />
-                  <p className="px-3 pb-3 text-xs text-slate-600">{reasons.join(' · ')}</p>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-slate-500">No active rentals are available yet. Your preferences are saved for the next listing.</p>
-          )}
-        </div>
+        <p className="text-sm text-slate-600">Browse available rentals ranked around your budget, location, and lifestyle preferences.</p>
+        <Link href="/user/recommendations" className="mt-4 inline-flex">
+          <Button type="button" variant="outline">View recommendations</Button>
+        </Link>
       </section>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">

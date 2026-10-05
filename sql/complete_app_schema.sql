@@ -215,6 +215,15 @@ CREATE TABLE IF NOT EXISTS public.student_hub_events (
   created_at timestamptz DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS public.student_hub_attendance (
+  id bigserial PRIMARY KEY,
+  event_id bigint NOT NULL REFERENCES public.student_hub_events(id) ON DELETE CASCADE,
+  student_id text NOT NULL,
+  status text NOT NULL DEFAULT 'Registered',
+  created_at timestamptz DEFAULT now(),
+  UNIQUE (event_id, student_id)
+);
+
 CREATE TABLE IF NOT EXISTS public.student_hub_agreements (
   id bigserial PRIMARY KEY,
   title text NOT NULL,

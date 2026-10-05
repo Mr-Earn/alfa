@@ -1,111 +1,18 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, ArrowRight, BadgeCheck, BellRing, Building2, CalendarDays, Clock3, FileText, Gift, GraduationCap, MapPin, MessageCircle, ScanLine, ShieldAlert, ShieldCheck, Sparkles, Store, Users, Wallet, Wrench } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { AlertTriangle, BadgeCheck, BellRing, CalendarDays, Clock3, FileText, GraduationCap, MapPin, MessageCircle, ShieldAlert, Sparkles, Store, Users, Wallet, Wrench } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { getAuthenticatedRequestHeaders, normalizeRole } from '@/lib/permissions';
 import useSupabaseUser from '@/utils/supabase/useUser';
 
-const recommendedListings = [
-  {
-    name: 'Riverview Residence',
-    campus: 'UJ Bunting Road',
-    match: 96,
-    rent: 'R6,800',
-    tag: 'NSFAS friendly',
-  },
-  {
-    name: 'Campus Nest',
-    campus: 'Wits Braamfontein',
-    match: 91,
-    rent: 'R5,900',
-    tag: 'Study-focused',
-  },
-  {
-    name: 'North Gate Studios',
-    campus: 'UCT Upper Campus',
-    match: 88,
-    rent: 'R7,200',
-    tag: 'Private room',
-  },
-];
-
-const transportOptions = [
-  { label: 'Walking time', value: '7 min' },
-  { label: 'Cycling time', value: '12 min' },
-  { label: 'Shuttle available', value: 'Every 15 min' },
-  { label: 'Campus distance', value: '650m' },
-];
-
-const maintenanceSeed = [
-  { id: 1, title: 'Wi-Fi outage', status: 'In Progress', owner: 'Facilities' },
-  { id: 2, title: 'Broken desk drawer', status: 'Open', owner: 'Housekeeping' },
-];
-
-const waitingListSeed = [
-  { name: 'Lerato M.', course: 'BCom Accounting', budget: 'R7,000', queue: 3 },
-  { name: 'Sipho K.', course: 'Mechanical Engineering', budget: 'R8,200', queue: 6 },
-];
-
-const marketplaceItems = [
-  { title: 'Laptop stand', price: 'R180', tag: 'Furniture' },
-  { title: 'Engineering calculator', price: 'R320', tag: 'Study material' },
-];
-
-const communities = [
-  { name: 'UJ Students', members: '3.2k' },
-  { name: 'NSFAS Support Circle', members: '1.1k' },
-  { name: 'Wits Residences', members: '2.4k' },
-];
-
 const assistantActions = [
   'Search accommodation using budget and campus filters',
   'Explain lease terms and payment expectations',
   'Guide students on NSFAS eligibility and documents',
-];
-
-const verificationLevels = [
-  { level: 'Basic Verification', status: 'Completed' },
-  { level: 'University Verified', status: 'Pending review' },
-  { level: 'NSFAS Verified', status: 'Ready' },
-  { level: 'Premium Verified', status: 'Available' },
-];
-
-const documentItems = [
-  'Lease agreement',
-  'NSFAS supporting documents',
-  'Proof of registration',
-  'Accreditation certificate',
-];
-
-const priorityRoadmap = [
-  { tier: 'Must Have', items: ['Accommodation assignment', 'NSFAS accreditation', 'Lease signing', 'Ratings & reviews'] },
-  { tier: 'Advanced', items: ['Roommate matching', 'Maintenance management', 'Waiting lists', 'Maps integration'] },
-  { tier: 'Enterprise', items: ['AI recommendations', 'Fraud detection', 'BI dashboards', 'Parent portal'] },
-];
-
-const visitorSeed = [
-  { name: 'Mpho L.', purpose: 'Family visit', status: 'Approved', overnight: false },
-  { name: 'Sizwe T.', purpose: 'Study group', status: 'Pending', overnight: true },
-];
-
-const inspectionSeed = [
-  { title: 'Move-in inspection', date: 'Aug 10', status: 'Scheduled' },
-  { title: 'Mid-term inspection', date: 'Sep 14', status: 'Planned' },
-];
-
-const emergencyContacts = [
-  { name: 'Campus Security', phone: '0800 555 123' },
-  { name: 'Residence Manager', phone: '071 222 4444' },
-  { name: 'Medical Support', phone: '082 900 0100' },
-];
-
-const eventSeed = [
-  { title: 'Orientation Mixer', date: 'Aug 12', attendees: 42 },
-  { title: 'Residence Q&A', date: 'Aug 22', attendees: 29 },
 ];
 
 const roleFeatureMap = {
@@ -116,60 +23,82 @@ const roleFeatureMap = {
   admin: ['recommendations', 'roommate', 'transport', 'nsfas', 'maintenance', 'waitingList', 'marketplace', 'community', 'assistant', 'visitor', 'inspections', 'events', 'parentPortal', 'communications', 'invoices', 'agreements', 'accreditations', 'verification', 'loyalty'],
 };
 
-export default function StudentHubPage() {
+const hubPages = [
+  { slug: 'overview', label: 'Overview' },
+  { slug: 'housing', label: 'Housing', features: ['recommendations', 'roommate', 'transport', 'nsfas'] },
+  { slug: 'support', label: 'Support', features: ['maintenance', 'waitingList'] },
+  { slug: 'community', label: 'Community', features: ['marketplace', 'community', 'assistant', 'verification'] },
+  { slug: 'finance', label: 'Finance', features: ['parentPortal', 'communications', 'invoices'] },
+  { slug: 'residence', label: 'Residence', features: ['visitor', 'inspections', 'events'] },
+  { slug: 'documents', label: 'Documents & safety', features: ['agreements', 'accreditations'] },
+  { slug: 'rewards', label: 'Rewards', features: ['loyalty'] },
+];
+
+export default function StudentHubPage({ section = 'overview' }) {
   const user = useSupabaseUser();
   const role = useMemo(() => normalizeRole(user?.user_metadata?.role || user?.role || 'student'), [user]);
   const visibleSections = useMemo(() => roleFeatureMap[role] || roleFeatureMap.student, [role]);
-  const roleLabel = {
-    student: 'Student',
-    agent: 'Agent',
-    owner: 'Property Owner',
-    university: 'University',
-    admin: 'Admin',
-  }[role] || 'Student';
-
+  const availableHubPages = useMemo(() => hubPages.filter((page) => !page.features || page.features.some((feature) => visibleSections.includes(feature))), [visibleSections]);
+  const currentPage = availableHubPages.find((page) => page.slug === section) || hubPages[0];
+  const currentSection = currentPage.slug;
   const [roommatePrefs, setRoommatePrefs] = useState({
     gender: 'No preference',
     smoking: 'No smoking',
     study: 'Quiet evenings',
     language: 'English',
   });
+  const [listings, setListings] = useState([]);
+  const [marketplaceItems, setMarketplaceItems] = useState([]);
+  const [dataStatus, setDataStatus] = useState({ hub: 'loading', listings: 'loading', marketplace: 'loading' });
   const [maintenanceForm, setMaintenanceForm] = useState({ type: 'Maintenance', description: '' });
-  const [maintenanceRequests, setMaintenanceRequests] = useState(maintenanceSeed);
+  const [maintenanceRequests, setMaintenanceRequests] = useState([]);
   const [waitingListForm, setWaitingListForm] = useState({ name: '', course: '', budget: '' });
-  const [waitingList, setWaitingList] = useState(waitingListSeed);
+  const [waitingList, setWaitingList] = useState([]);
   const [visitorForm, setVisitorForm] = useState({ name: '', purpose: '', overnight: false });
-  const [visitors, setVisitors] = useState(visitorSeed);
-  const [checkInStatus, setCheckInStatus] = useState('Ready for move-in');
-  const [inspectionForm, setInspectionForm] = useState({ title: 'Move-in inspection', date: '2026-08-10' });
-  const [inspections, setInspections] = useState(inspectionSeed);
+  const [visitors, setVisitors] = useState([]);
+  const [inspectionForm, setInspectionForm] = useState({ title: 'Move-in inspection', date: '' });
+  const [inspections, setInspections] = useState([]);
   const [eventForm, setEventForm] = useState({ title: '', date: '', category: 'Orientation' });
-  const [events, setEvents] = useState(eventSeed);
+  const [events, setEvents] = useState([]);
   const [agreementForm, setAgreementForm] = useState({ title: 'Lease agreement', party: 'Student & Owner', status: 'Pending' });
   const [agreements, setAgreements] = useState([]);
   const [accreditationForm, setAccreditationForm] = useState({ title: 'University accreditation', status: 'Pending' });
   const [accreditations, setAccreditations] = useState([]);
   const [auditTrail, setAuditTrail] = useState([]);
-  const [parentPortalForm, setParentPortalForm] = useState({ title: '', amount: '', status: 'Sent' });
-  const [parentPortalItems, setParentPortalItems] = useState([]);
   const [communicationForm, setCommunicationForm] = useState({ title: '', type: 'Support ticket', detail: '', priority: 'Normal' });
   const [communications, setCommunications] = useState([]);
-  const [invoiceForm, setInvoiceForm] = useState({ title: '', amount: '', dueDate: '', status: 'Pending' });
-  const [invoices, setInvoices] = useState([]);
-  const [loyalty, setLoyalty] = useState({ points: 1240, activity: [] });
-  const [attendanceEntries, setAttendanceEntries] = useState([]);
+  const parentPortalItems = [];
+  const invoices = [];
+  const hubEmptyMessage = (emptyMessage) => (
+    dataStatus.hub === 'loading' ? 'Loading records...' :
+      dataStatus.hub === 'unavailable' ? 'Could not load Student Hub data.' : emptyMessage
+  );
 
-  const getStudentHubHeaders = async () => {
+  const getStudentHubHeaders = useCallback(async () => {
     return getAuthenticatedRequestHeaders(normalizeRole(user?.user_metadata?.role || user?.role || 'student'));
-  };
+  }, [user?.user_metadata?.role, user?.role]);
 
   useEffect(() => {
     const loadData = async () => {
       try {
-        const response = await fetch('/api/student-hub', {
-          headers: await getStudentHubHeaders(),
+        const headers = await getStudentHubHeaders();
+        const [hubResponse, listingsResponse, marketplaceResponse] = await Promise.all([
+          fetch('/api/student-hub', { headers }),
+          fetch('/api/listings-public'),
+          fetch('/api/marketplace', { headers }),
+        ]);
+        const [data, listingsData, marketplaceData] = await Promise.all([
+          hubResponse.ok ? hubResponse.json() : {},
+          listingsResponse.ok ? listingsResponse.json() : { listings: [] },
+          marketplaceResponse.ok ? marketplaceResponse.json() : { items: [] },
+        ]);
+        setDataStatus({
+          hub: hubResponse.ok ? 'loaded' : 'unavailable',
+          listings: listingsResponse.ok ? 'loaded' : 'unavailable',
+          marketplace: marketplaceResponse.ok ? 'loaded' : 'unavailable',
         });
-        const data = await response.json();
+        setListings(listingsData.listings || []);
+        setMarketplaceItems(marketplaceData.items || []);
         if (data?.maintenance) setMaintenanceRequests(data.maintenance);
         if (data?.waitingList) setWaitingList(data.waitingList);
         if (data?.visitors) setVisitors(data.visitors);
@@ -178,27 +107,15 @@ export default function StudentHubPage() {
         if (data?.agreements) setAgreements(data.agreements);
         if (data?.accreditations) setAccreditations(data.accreditations);
         if (data?.auditTrail) setAuditTrail(data.auditTrail);
-        if (data?.parentPortal) setParentPortalItems(data.parentPortal);
         if (data?.communications) setCommunications(data.communications);
-        if (data?.invoices) setInvoices(data.invoices);
-        if (data?.loyalty) setLoyalty(data.loyalty);
-        if (data?.attendance) setAttendanceEntries(data.attendance);
       } catch (error) {
+        setDataStatus({ hub: 'unavailable', listings: 'unavailable', marketplace: 'unavailable' });
         console.warn('Unable to load student hub data', error);
       }
     };
 
     loadData();
-  }, []);
-
-  const compatibilityScore = useMemo(() => {
-    let score = 74;
-    if (roommatePrefs.gender === 'No preference') score += 4;
-    if (roommatePrefs.smoking === 'No smoking') score += 8;
-    if (roommatePrefs.study === 'Quiet evenings') score += 6;
-    if (roommatePrefs.language === 'English') score += 4;
-    return Math.min(98, score);
-  }, [roommatePrefs]);
+  }, [getStudentHubHeaders]);
 
   const addMaintenanceRequest = async (event) => {
     event.preventDefault();
@@ -285,7 +202,7 @@ export default function StudentHubPage() {
       const response = await fetch('/api/student-hub', {
         method: 'POST',
         headers: { ...(await getStudentHubHeaders()), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'event', entry: { ...eventForm, attendees: 18 } }),
+        body: JSON.stringify({ type: 'event', entry: { ...eventForm, attendees: 0 } }),
       });
 
       if (response.ok) {
@@ -295,23 +212,6 @@ export default function StudentHubPage() {
       }
     } catch (error) {
       console.warn('Unable to save event', error);
-    }
-  };
-
-  const addAttendanceEntry = async (eventTitle, status) => {
-    try {
-      const response = await fetch('/api/student-hub', {
-        method: 'POST',
-        headers: { ...(await getStudentHubHeaders()), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'attendance', entry: { eventTitle, status } }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setEvents(data.events || []);
-      }
-    } catch (error) {
-      console.warn('Unable to save attendance', error);
     }
   };
 
@@ -357,45 +257,6 @@ export default function StudentHubPage() {
     }
   };
 
-  const addLoyaltyEntry = async (title, points, detail) => {
-    try {
-      const response = await fetch('/api/student-hub', {
-        method: 'POST',
-        headers: { ...(await getStudentHubHeaders()), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'loyalty', entry: { title, points, detail } }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setLoyalty(data.loyalty || { points: 0, activity: [] });
-      }
-    } catch (error) {
-      console.warn('Unable to save loyalty activity', error);
-    }
-  };
-
-  const addParentPortalEntry = async (event) => {
-    event.preventDefault();
-    if (!parentPortalForm.title.trim()) return;
-
-    try {
-      const response = await fetch('/api/student-hub', {
-        method: 'POST',
-        headers: { ...(await getStudentHubHeaders()), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'parentPortal', entry: parentPortalForm }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setParentPortalItems(data.parentPortal || []);
-        setAuditTrail(data.auditTrail || []);
-        setParentPortalForm({ title: '', amount: '', status: 'Sent' });
-      }
-    } catch (error) {
-      console.warn('Unable to save parent portal update', error);
-    }
-  };
-
   const addCommunicationEntry = async (event) => {
     event.preventDefault();
     if (!communicationForm.title.trim() || !communicationForm.detail.trim()) return;
@@ -418,42 +279,34 @@ export default function StudentHubPage() {
     }
   };
 
-  const addInvoiceEntry = async (event) => {
-    event.preventDefault();
-    if (!invoiceForm.title.trim() || !invoiceForm.amount.trim()) return;
-
-    try {
-      const response = await fetch('/api/student-hub', {
-        method: 'POST',
-        headers: { ...(await getStudentHubHeaders()), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'invoice', entry: invoiceForm }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setInvoices(data.invoices || []);
-        setAuditTrail(data.auditTrail || []);
-        setInvoiceForm({ title: '', amount: '', dueDate: '', status: 'Pending' });
-      }
-    } catch (error) {
-      console.warn('Unable to save invoice', error);
-    }
-  };
-
   return (
     <div className="space-y-8 p-6 md:p-10">
+      <nav aria-label="Student Hub sections" className="flex gap-2 overflow-x-auto border-b border-slate-200 pb-3">
+        {availableHubPages.map((page) => (
+          <Link key={page.slug} href={page.slug === 'overview' ? '/student-hub' : `/student-hub/${page.slug}`} aria-current={currentSection === page.slug ? 'page' : undefined} className={`shrink-0 rounded-lg px-3 py-2 text-sm font-medium ${currentSection === page.slug ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>
+            {page.label}
+          </Link>
+        ))}
+      </nav>
+      {currentSection !== 'overview' && (
+        <header>
+          <h1 className="text-2xl font-semibold text-slate-900">{currentPage.label}</h1>
+          <p className="mt-1 text-sm text-slate-500">Your student housing workspace</p>
+        </header>
+      )}
+      {currentSection === 'overview' && <>
       <section className="overflow-hidden rounded-3xl bg-slate-950 p-8 text-white shadow-xl">
         <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-2xl space-y-4">
             <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-sm">
               <Sparkles className="h-4 w-4" />
-              Commercial-grade student housing platform
+              Student Hub
             </div>
             <h1 className="text-3xl font-semibold sm:text-4xl">
-              Launch a smarter student housing experience with AI matching, NSFAS visibility, and campus-ready operations.
+              Housing, support, and campus life in one place.
             </h1>
             <p className="text-sm text-slate-300 sm:text-base">
-              This workspace now includes an advanced student-hub experience for recommendations, roommate matching, maintenance management, waiting lists, and community engagement.
+              Browse active accommodation, manage support requests, and follow residence updates.
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
@@ -471,10 +324,10 @@ export default function StudentHubPage() {
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {[
-          { title: 'AI recommendations', value: '96% match confidence', icon: GraduationCap },
-          { title: 'NSFAS readiness', value: 'Funding visibility', icon: Wallet },
-          { title: 'Fast support', value: 'Maintenance and incidents', icon: ShieldCheck },
-          { title: 'Community growth', value: 'Groups and events', icon: Users },
+          { title: 'Active listings', value: dataStatus.listings === 'loaded' ? `${listings.length} records` : dataStatus.listings === 'loading' ? 'Loading...' : 'Unavailable', icon: GraduationCap },
+          { title: 'Maintenance requests', value: dataStatus.hub === 'loaded' ? `${maintenanceRequests.length} records` : dataStatus.hub === 'loading' ? 'Loading...' : 'Unavailable', icon: Wrench },
+          { title: 'Residence events', value: dataStatus.hub === 'loaded' ? `${events.length} records` : dataStatus.hub === 'loading' ? 'Loading...' : 'Unavailable', icon: CalendarDays },
+          { title: 'Communications', value: dataStatus.hub === 'loaded' ? `${communications.length} records` : dataStatus.hub === 'loading' ? 'Loading...' : 'Unavailable', icon: MessageCircle },
         ].map((item) => {
           const Icon = item.icon;
           return (
@@ -488,31 +341,35 @@ export default function StudentHubPage() {
           );
         })}
       </section>
+      </>}
 
-      {(visibleSections.includes('recommendations') || visibleSections.includes('roommate') || visibleSections.includes('transport') || visibleSections.includes('nsfas')) && (
+      {currentSection === 'housing' && (visibleSections.includes('recommendations') || visibleSections.includes('roommate') || visibleSections.includes('transport') || visibleSections.includes('nsfas')) && (
         <>
           <section className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
         <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="mb-5 flex items-center justify-between">
+            <div className="mb-5 flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-slate-500">AI accommodation matching</p>
-              <h2 className="text-xl font-semibold">Recommended homes for your student profile</h2>
+                <p className="text-sm font-medium text-slate-500">Available accommodation</p>
+                <h2 className="text-xl font-semibold">Active student housing listings</h2>
             </div>
-            <div className="rounded-full bg-emerald-50 px-3 py-1 text-sm font-medium text-emerald-700">Updated today</div>
           </div>
           <div className="space-y-3">
-            {recommendedListings.map((listing) => (
-              <div key={listing.name} className="flex flex-col gap-3 rounded-2xl border border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between">
+            {listings.length === 0 && <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-600">{dataStatus.listings === 'loading' ? 'Loading active listings...' : dataStatus.listings === 'unavailable' ? 'Could not load accommodation listings.' : 'No active accommodation listings are available right now.'}</p>}
+            {listings.map((listing) => (
+              <div key={listing.id} className="flex flex-col gap-3 rounded-2xl border border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="font-semibold">{listing.name}</h3>
-                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">{listing.tag}</span>
+                    <h3 className="font-semibold">
+                      <Link href={`/view-listing/${listing.id}`} className="hover:underline">
+                        {listing.title}
+                      </Link>
+                    </h3>
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">{listing.propertyType || 'Accommodation'}</span>
                   </div>
-                  <p className="mt-1 text-sm text-slate-600">{listing.campus}</p>
+                  <p className="mt-1 text-sm text-slate-600">{[listing.address, listing.city].filter(Boolean).join(', ') || 'Location not provided'}</p>
                 </div>
                 <div className="flex items-center gap-3">
-                  <div className="rounded-full bg-blue-50 px-3 py-1 text-sm font-semibold text-blue-700">{listing.match}% match</div>
-                  <div className="text-sm font-medium text-slate-700">{listing.rent}/month</div>
+                  <div className="text-sm font-medium text-slate-700">{listing.price ? `R${Number(listing.price).toLocaleString()}/month` : 'Price not provided'}</div>
                 </div>
               </div>
             ))}
@@ -564,9 +421,9 @@ export default function StudentHubPage() {
             <div className="rounded-2xl bg-slate-50 p-4">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium text-slate-700">Compatibility score</span>
-                <span className="text-lg font-semibold text-slate-950">{compatibilityScore}%</span>
+                <span className="text-sm font-semibold text-slate-600">Not available</span>
               </div>
-              <p className="mt-2 text-sm text-slate-600">Strong match for shared study habits and respectful living standards.</p>
+              <p className="mt-2 text-sm text-slate-600">Roommate profiles and match records are not connected.</p>
             </div>
           </div>
         </div>
@@ -582,12 +439,7 @@ export default function StudentHubPage() {
             </div>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
-            {transportOptions.map((item) => (
-              <div key={item.label} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <p className="text-sm text-slate-500">{item.label}</p>
-                <p className="mt-1 font-semibold text-slate-900">{item.value}</p>
-              </div>
-            ))}
+            <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-600 sm:col-span-2">Campus distance and transport estimates are not available for the current listings.</p>
           </div>
         </div>
 
@@ -603,24 +455,29 @@ export default function StudentHubPage() {
             <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium text-emerald-800">Funding status</span>
-                <span className="rounded-full bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white">Approved</span>
+                <span className="rounded-full bg-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-700">No data</span>
               </div>
-              <p className="mt-2 text-lg font-semibold text-emerald-900">R12,400 available</p>
+              <p className="mt-2 text-lg font-semibold text-emerald-900">Funding details are not connected</p>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="rounded-2xl border border-slate-200 p-4">
                 <p className="text-sm text-slate-500">Received</p>
-                <p className="mt-1 font-semibold">R9,000</p>
+                <p className="mt-1 font-semibold">No data</p>
               </div>
               <div className="rounded-2xl border border-slate-200 p-4">
                 <p className="text-sm text-slate-500">Outstanding</p>
-                <p className="mt-1 font-semibold">R3,400</p>
+                <p className="mt-1 font-semibold">No data</p>
               </div>
             </div>
           </div>
         </div>
       </section>
 
+        </>
+      )}
+
+      {currentSection === 'support' && (visibleSections.includes('maintenance') || visibleSections.includes('waitingList')) && (
+        <>
       <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
         <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="mb-5 flex items-center gap-2">
@@ -658,6 +515,7 @@ export default function StudentHubPage() {
                 <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">{request.status}</span>
               </div>
             ))}
+            {maintenanceRequests.length === 0 && <p className="text-sm text-slate-500">{hubEmptyMessage('No maintenance requests have been submitted.')}</p>}
           </div>
         </div>
 
@@ -697,13 +555,14 @@ export default function StudentHubPage() {
                 <p className="mt-1 text-sm text-slate-600">{person.course} • Budget {person.budget}</p>
               </div>
             ))}
+            {waitingList.length === 0 && <p className="text-sm text-slate-500">{hubEmptyMessage('The waiting list is empty.')}</p>}
           </div>
         </div>
       </section>
         </>
       )}
 
-      {(visibleSections.includes('marketplace') || visibleSections.includes('community')) && (
+      {currentSection === 'community' && (visibleSections.includes('marketplace') || visibleSections.includes('community') || visibleSections.includes('assistant') || visibleSections.includes('verification')) && (
         <>
           <section className="grid gap-6 xl:grid-cols-[1fr_1fr]">
         <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -716,15 +575,16 @@ export default function StudentHubPage() {
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             {marketplaceItems.map((item) => (
-              <div key={item.title} className="rounded-2xl border border-slate-200 p-4">
+              <div key={item.id} className="rounded-2xl border border-slate-200 p-4">
                 <p className="font-semibold">{item.title}</p>
-                <p className="mt-1 text-sm text-slate-500">{item.tag}</p>
+                <p className="mt-1 line-clamp-2 text-sm text-slate-500">{item.description}</p>
                 <div className="mt-3 flex items-center justify-between">
                   <span className="font-semibold text-slate-900">{item.price}</span>
-                  <Button variant="outline" size="sm">View</Button>
+                  <span className="text-xs text-slate-500">{item.seller_name || 'Campus seller'}</span>
                 </div>
               </div>
             ))}
+            {marketplaceItems.length === 0 && <p className="text-sm text-slate-500 sm:col-span-2">{dataStatus.marketplace === 'loading' ? 'Loading marketplace items...' : dataStatus.marketplace === 'unavailable' ? 'Could not load marketplace items.' : 'No marketplace items are currently listed.'}</p>}
           </div>
         </div>
 
@@ -737,15 +597,7 @@ export default function StudentHubPage() {
             </div>
           </div>
           <div className="space-y-3">
-            {communities.map((group) => (
-              <div key={group.name} className="flex items-center justify-between rounded-2xl border border-slate-200 p-4">
-                <div>
-                  <p className="font-semibold">{group.name}</p>
-                  <p className="text-sm text-slate-500">{group.members} members</p>
-                </div>
-                <Button variant="outline" size="sm">Join</Button>
-              </div>
-            ))}
+            <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-600">Student groups are not available yet.</p>
           </div>
         </div>
       </section>
@@ -767,7 +619,7 @@ export default function StudentHubPage() {
             ))}
           </div>
           <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-            Fraud signals flagged: 3 suspicious reviews, 1 duplicate application, 2 unusual booking patterns.
+            Fraud monitoring data is not connected.
           </div>
         </div>
 
@@ -780,22 +632,24 @@ export default function StudentHubPage() {
             </div>
           </div>
           <div className="space-y-3">
-            {verificationLevels.map((item) => (
-              <div key={item.level} className="flex items-center justify-between rounded-2xl border border-slate-200 p-3">
-                <span className="font-medium text-slate-800">{item.level}</span>
-                <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">{item.status}</span>
-              </div>
-            ))}
+              {accreditations.map((item, index) => (
+                <div key={`${item.title}-${index}`} className="flex items-center justify-between rounded-2xl border border-slate-200 p-3">
+                  <span className="font-medium text-slate-800">{item.title}</span>
+                  <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">{item.status}</span>
+                </div>
+              ))}
+              {accreditations.length === 0 && <p className="text-sm text-slate-500">{hubEmptyMessage('No accreditation records are available.')}</p>}
           </div>
           <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
             <p className="text-sm font-semibold text-slate-700">Available documents</p>
             <ul className="mt-2 space-y-2 text-sm text-slate-600">
-              {documentItems.map((item) => (
-                <li key={item} className="flex items-center gap-2">
+              {agreements.map((item, index) => (
+                <li key={`${item.title}-${index}`} className="flex items-center gap-2">
                   <FileText className="h-4 w-4" />
-                  {item}
+                  {item.title} · {item.status}
                 </li>
               ))}
+              {agreements.length === 0 && <li>{hubEmptyMessage('No agreement records are available.')}</li>}
             </ul>
           </div>
         </div>
@@ -803,7 +657,7 @@ export default function StudentHubPage() {
         </>
       )}
 
-      {(visibleSections.includes('parentPortal') || visibleSections.includes('communications') || visibleSections.includes('invoices')) && (
+      {currentSection === 'finance' && (visibleSections.includes('parentPortal') || visibleSections.includes('communications') || visibleSections.includes('invoices')) && (
         <>
           <section className="grid gap-6 xl:grid-cols-[1fr_1fr]">
         <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -814,12 +668,6 @@ export default function StudentHubPage() {
               <h2 className="text-xl font-semibold">Keep parents, sponsors, and owners aligned</h2>
             </div>
           </div>
-          <form onSubmit={addParentPortalEntry} className="mb-4 space-y-3 rounded-2xl border border-slate-200 p-4">
-            <Input placeholder="Statement title" value={parentPortalForm.title} onChange={(event) => setParentPortalForm({ ...parentPortalForm, title: event.target.value })} />
-            <Input placeholder="Amount" value={parentPortalForm.amount} onChange={(event) => setParentPortalForm({ ...parentPortalForm, amount: event.target.value })} />
-            <Input placeholder="Status" value={parentPortalForm.status} onChange={(event) => setParentPortalForm({ ...parentPortalForm, status: event.target.value })} />
-            <Button type="submit">Send update</Button>
-          </form>
           <div className="grid gap-3 sm:grid-cols-2">
             {parentPortalItems.map((item, index) => (
               <div key={`${item.title}-${index}`} className="rounded-2xl border border-slate-200 p-4">
@@ -828,6 +676,7 @@ export default function StudentHubPage() {
                 <p className="mt-2 text-xs font-medium uppercase tracking-wide text-slate-500">{item.status}</p>
               </div>
             ))}
+            {parentPortalItems.length === 0 && <p className="text-sm text-slate-500">Parent statements are not connected to a data source.</p>}
           </div>
         </div>
 
@@ -876,13 +725,6 @@ export default function StudentHubPage() {
               <h2 className="text-xl font-semibold">Track rent, deposits, and outstanding balances</h2>
             </div>
           </div>
-          <form onSubmit={addInvoiceEntry} className="mb-4 space-y-3 rounded-2xl border border-slate-200 p-4">
-            <Input placeholder="Invoice title" value={invoiceForm.title} onChange={(event) => setInvoiceForm({ ...invoiceForm, title: event.target.value })} />
-            <Input placeholder="Amount" value={invoiceForm.amount} onChange={(event) => setInvoiceForm({ ...invoiceForm, amount: event.target.value })} />
-            <Input placeholder="Due date" value={invoiceForm.dueDate} onChange={(event) => setInvoiceForm({ ...invoiceForm, dueDate: event.target.value })} />
-            <Input placeholder="Status" value={invoiceForm.status} onChange={(event) => setInvoiceForm({ ...invoiceForm, status: event.target.value })} />
-            <Button type="submit">Create invoice</Button>
-          </form>
           <div className="space-y-3">
             {invoices.map((item, index) => (
               <div key={`${item.title}-${index}`} className="rounded-2xl border border-slate-200 p-4">
@@ -893,38 +735,15 @@ export default function StudentHubPage() {
                 <p className="mt-1 text-sm text-slate-600">{item.amount} • Due {item.dueDate}</p>
               </div>
             ))}
+            {invoices.length === 0 && <p className="text-sm text-slate-500">Invoices are not connected to a data source.</p>}
           </div>
         </div>
 
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="mb-5 flex items-center gap-2">
-            <ShieldCheck className="h-5 w-5 text-slate-700" />
-            <div>
-              <p className="text-sm font-medium text-slate-500">Commercial rollout roadmap</p>
-              <h2 className="text-xl font-semibold">Prioritize the next release phases</h2>
-            </div>
-          </div>
-          <div className="space-y-3">
-            {priorityRoadmap.map((group) => (
-              <div key={group.tier} className="rounded-2xl border border-slate-200 p-4">
-                <p className="font-semibold text-slate-900">{group.tier}</p>
-                <ul className="mt-2 space-y-2 text-sm text-slate-600">
-                  {group.items.map((item) => (
-                    <li key={item} className="flex items-center gap-2">
-                      <ArrowRight className="h-4 w-4" />
-                      {item}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-        </div>
       </section>
         </>
       )}
 
-      {(visibleSections.includes('visitor') || visibleSections.includes('inspections') || visibleSections.includes('events')) && (
+      {currentSection === 'residence' && (visibleSections.includes('visitor') || visibleSections.includes('inspections') || visibleSections.includes('events')) && (
         <>
           <section className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
         <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -954,6 +773,7 @@ export default function StudentHubPage() {
                 <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">{visitor.status}</span>
               </div>
             ))}
+            {visitors.length === 0 && <p className="text-sm text-slate-500">{hubEmptyMessage('No visitors have been registered.')}</p>}
           </div>
         </div>
 
@@ -968,21 +788,16 @@ export default function StudentHubPage() {
           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-slate-700">Current status</span>
-              <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700">{checkInStatus}</span>
+              <span className="rounded-full bg-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-700">No data</span>
             </div>
-            <div className="mt-3 space-y-2 text-sm text-slate-600">
-              <p>• Room inspection completed</p>
-              <p>• Inventory verified</p>
-              <p>• Key handover recorded</p>
-            </div>
-            <Button className="mt-4" onClick={() => setCheckInStatus('Move-out verified')}>Complete check-out</Button>
+            <p className="mt-3 text-sm text-slate-600">Check-in and check-out records are not connected to a data source.</p>
           </div>
         </div>
       </section>
         </>
       )}
 
-      {(visibleSections.includes('agreements') || visibleSections.includes('accreditations')) && (
+      {currentSection === 'documents' && (visibleSections.includes('agreements') || visibleSections.includes('accreditations')) && (
         <>
           <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
         <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -997,19 +812,11 @@ export default function StudentHubPage() {
             <AlertTriangle className="h-5 w-5 text-red-600" />
             <div>
               <p className="font-semibold text-red-800">Panic button available</p>
-              <p className="text-sm text-red-700">Emergency contacts and GPS location sharing are enabled.</p>
+              <p className="text-sm text-red-700">Emergency contact and location-sharing details are not configured.</p>
             </div>
           </div>
           <div className="space-y-3">
-            {emergencyContacts.map((item) => (
-              <div key={item.name} className="flex items-center justify-between rounded-2xl border border-slate-200 p-3">
-                <div>
-                  <p className="font-medium">{item.name}</p>
-                  <p className="text-sm text-slate-500">{item.phone}</p>
-                </div>
-                <Button variant="outline" size="sm">Call</Button>
-              </div>
-            ))}
+            <p className="text-sm text-slate-500">No emergency contacts are configured.</p>
           </div>
         </div>
 
@@ -1036,6 +843,7 @@ export default function StudentHubPage() {
                 <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">{item.status}</span>
               </div>
             ))}
+            {inspections.length === 0 && <p className="text-sm text-slate-500">{hubEmptyMessage('No inspections have been scheduled.')}</p>}
           </div>
           <form onSubmit={addEventEntry} className="mt-4 space-y-3 rounded-2xl border border-slate-200 p-4">
             <Input placeholder="Event title" value={eventForm.title} onChange={(event) => setEventForm({ ...eventForm, title: event.target.value })} />
@@ -1055,11 +863,11 @@ export default function StudentHubPage() {
                   <p className="text-sm text-slate-500">{event.date} • {event.category || 'Activity'}</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">{event.attendees} RSVP</span>
-                  <Button size="sm" variant="outline" onClick={() => addAttendanceEntry(event.title, 'Registered')}>RSVP</Button>
+                  <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">{event.attendees} attendees</span>
                 </div>
               </div>
             ))}
+            {events.length === 0 && <p className="text-sm text-slate-500">{hubEmptyMessage('No events have been created.')}</p>}
           </div>
         </div>
       </section>
@@ -1089,6 +897,7 @@ export default function StudentHubPage() {
                 <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">{item.status}</span>
               </div>
             ))}
+            {agreements.length === 0 && <p className="text-sm text-slate-500">{hubEmptyMessage('No agreement records are available.')}</p>}
           </div>
         </div>
 
@@ -1114,6 +923,7 @@ export default function StudentHubPage() {
                 <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">{item.status}</span>
               </div>
             ))}
+            {accreditations.length === 0 && <p className="text-sm text-slate-500">{hubEmptyMessage('No accreditation records are available.')}</p>}
           </div>
           <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
             <p className="text-sm font-semibold text-slate-700">Audit trail</p>
@@ -1124,6 +934,7 @@ export default function StudentHubPage() {
                   <p className="text-xs text-slate-500">{item.detail}</p>
                 </li>
               ))}
+              {auditTrail.length === 0 && <li>{hubEmptyMessage('No audit records are available.')}</li>}
             </ul>
           </div>
         </div>
@@ -1131,58 +942,12 @@ export default function StudentHubPage() {
         </>
       )}
 
-      {(visibleSections.includes('loyalty')) && (
+      {currentSection === 'rewards' && visibleSections.includes('loyalty') && (
         <>
           <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <div>
-                <p className="text-sm font-medium text-slate-500">Reward & loyalty program</p>
-                <h2 className="text-xl font-semibold">Earn points for referrals, reviews, and on-time rent</h2>
-              </div>
-              <div className="flex items-center gap-3 rounded-2xl bg-slate-50 p-4">
-                <Gift className="h-5 w-5 text-slate-700" />
-                <div>
-                  <p className="text-sm text-slate-500">Current points</p>
-                  <p className="text-lg font-semibold text-slate-900">{loyalty.points} pts</p>
-                </div>
-              </div>
-            </div>
-            <div className="mt-4 grid gap-3 md:grid-cols-2">
-              <div className="rounded-2xl border border-slate-200 p-4">
-                <p className="font-semibold text-slate-900">How students earn points</p>
-                <ul className="mt-2 space-y-2 text-sm text-slate-600">
-                  <li>• Complete profiles for 100 pts</li>
-                  <li>• Leave reviews for 150 pts</li>
-                  <li>• Pay rent on time for 300 pts</li>
-                  <li>• Refer friends for 250 pts</li>
-                </ul>
-              </div>
-              <div className="rounded-2xl border border-slate-200 p-4">
-                <p className="font-semibold text-slate-900">Recent activity</p>
-                <div className="mt-2 space-y-2">
-                  {loyalty.activity.map((item, index) => (
-                    <div key={`${item.title}-${index}`} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
-                      {item.title} • {item.detail}
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <Button size="sm" variant="outline" onClick={() => addLoyaltyEntry('Profile completed', 100, '+100 pts')}>Complete profile</Button>
-                  <Button size="sm" variant="outline" onClick={() => addLoyaltyEntry('Review submitted', 150, '+150 pts')}>Leave review</Button>
-                  <Button size="sm" variant="outline" onClick={() => addLoyaltyEntry('Rent paid on time', 300, '+300 pts')}>Pay rent</Button>
-                </div>
-              </div>
-            </div>
-            <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              <p className="font-semibold text-slate-900">Attendance</p>
-              <div className="mt-2 space-y-2 text-sm text-slate-600">
-                {attendanceEntries.map((item, index) => (
-                  <div key={`${item.eventTitle}-${index}`} className="rounded-xl border border-slate-200 bg-white px-3 py-2">
-                    {item.eventTitle} • {item.status}
-                  </div>
-                ))}
-              </div>
-            </div>
+            <p className="text-sm font-medium text-slate-500">Rewards</p>
+            <h2 className="mt-1 text-xl font-semibold">Rewards data is not connected</h2>
+            <p className="mt-2 text-sm text-slate-600">Points, activity, and event attendance will appear here when a data source is configured.</p>
           </section>
         </>
       )}

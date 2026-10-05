@@ -9,14 +9,14 @@ import {
 import Image from 'next/image'
   
 function Slider({imageList}) {
-    console.log(imageList)
+    const images = (imageList || []).filter((item) => item?.url)
   return (
     <div >
-         {imageList?      
+      {images.length ?      
           <Carousel>
         <CarouselContent>
-            {imageList.map((item,index)=>(
-                 <CarouselItem>
+      {images.map((item,index)=>(
+        <CarouselItem key={item.id || item.url || index}>
                     <Image src={item.url} width={800}
                     height={300}
                     alt='image'
@@ -30,8 +30,8 @@ function Slider({imageList}) {
         <CarouselPrevious />
         <CarouselNext />
         </Carousel>
-        :<div className='w-full h-[200px] bg-slate-200 animate-pulse rounded-lg'>
-            
+        :<div className='flex h-[200px] w-full items-center justify-center rounded-lg bg-slate-100 text-sm text-slate-500'>
+          No listing photos available.
         </div>}
 
     </div>

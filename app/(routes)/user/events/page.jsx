@@ -64,12 +64,15 @@ export default function UserEventsPage() {
                 <Button size='sm' variant='outline' onClick={async () => {
                   try {
                     const headers = await getAuthenticatedRequestHeaders(role)
-                    await fetch('/api/student-hub', {
+                    const response = await fetch('/api/student-hub', {
                       method: 'POST',
                       headers: { ...(headers), 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ type: 'attendance', entry: { eventTitle: ev.title, status: 'Registered' } }),
+                      body: JSON.stringify({ type: 'attendance', entry: { eventId: ev.id } }),
                     })
-                    alert('RSVP recorded (demo)')
+                    if (!response.ok) throw new Error('Unable to record RSVP')
+                    const data = await response.json()
+                    setEvents(data.events || [])
+                    alert('RSVP recorded')
                   } catch (e) {
                     console.warn(e)
                     alert('Could not RSVP')

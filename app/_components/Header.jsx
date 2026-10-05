@@ -52,13 +52,21 @@ function Header() {
               <li className={`cursor-pointer text-sm font-medium transition ${path == '/rent' ? 'text-blue-600' : 'text-slate-600 hover:text-slate-900'}`}>For Rent</li>
             </Link>
           )}
+          {role === 'admin' && (
+            <Link href='/user/admin'>
+              <li className={`cursor-pointer text-sm font-medium transition ${path?.startsWith('/user/admin') ? 'text-blue-600' : 'text-slate-600 hover:text-slate-900'}`}>Admin Console</li>
+            </Link>
+          )}
           {showStudentHub && (
             <Link href={'/student-hub'} >
-              <li className={`cursor-pointer text-sm font-medium transition ${path == '/student-hub' ? 'text-blue-600' : 'text-slate-600 hover:text-slate-900'}`}>Student Hub</li>
+              <li className={`cursor-pointer text-sm font-medium transition ${path?.startsWith('/student-hub') ? 'text-blue-600' : 'text-slate-600 hover:text-slate-900'}`}>Student Hub</li>
             </Link>
           )}
           {role === 'student' && (
             <>
+              <Link href={'/user/recommendations'}>
+                <li className={`cursor-pointer text-sm font-medium transition ${path === '/user/recommendations' ? 'text-blue-600' : 'text-slate-600 hover:text-slate-900'}`}>Recommendations</li>
+              </Link>
               <Link href={'/user#my-bookings'}>
                 <li className={`cursor-pointer text-sm font-medium transition ${path === '/user#my-bookings' ? 'text-blue-600' : 'text-slate-600 hover:text-slate-900'}`}>My Bookings</li>
               </Link>
@@ -121,7 +129,11 @@ function Header() {
             <DropdownMenuItem>
              <Link href={'/user/profile'}>Profile</Link> 
             </DropdownMenuItem>
-            {role === 'student' ? (
+            {role === 'admin' ? (
+              <DropdownMenuItem>
+                <Link href='/user/admin'>Admin Console</Link>
+              </DropdownMenuItem>
+            ) : role === 'student' ? (
               <>
                 <DropdownMenuItem>
                   <Link href={'/user#my-bookings'}>My Bookings</Link>

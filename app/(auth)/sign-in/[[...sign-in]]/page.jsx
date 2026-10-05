@@ -49,7 +49,7 @@ export default function Page() {
       }
 
       toast('Signed in successfully')
-      router.push('/')
+      router.push(userRole === 'admin' ? '/user/admin' : '/')
     } catch (e) {
       console.error('sign-in error', e)
       toast('Unable to sign in right now. Please try again.')
