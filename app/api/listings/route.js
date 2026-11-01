@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/utils/supabase/admin'
-import { getAuthenticatedRequestContext } from '@/lib/permissions'
+import { getAuthenticatedRequestContext, normalizeRole } from '@/lib/permissions'
 
 const fallbackListings = [
   {
@@ -232,7 +232,7 @@ export async function POST(request) {
 }
 
 export async function PUT(request) {
-  const { user, role } = await getAuthenticatedRequestContext(request)
+  let { user, role } = await getAuthenticatedRequestContext(request)
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
@@ -247,8 +247,67 @@ export async function PUT(request) {
     return NextResponse.json({ error: 'Listing id is required' }, { status: 400 })
   }
 
+  const updatesAccreditation = Object.hasOwn(body, 'nsfas_accreditation_status')
+  let accreditationFields = {}
+  if (updatesAccreditation) {
+    const token = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '')
+    if (!token || !supabaseAdmin) {
+      return NextResponse.json({ error: 'A valid university sign-in is required to update accreditation records' }, { status: 401 })
+    }
+
+    const { data: { user: authenticatedUser }, error: authError } = await supabaseAdmin.auth.getUser(token)
+    if (authError || !authenticatedUser) {
+      return NextResponse.json({ error: 'A valid university sign-in is required to update accreditation records' }, { status: 401 })
+    }
+
+    user = authenticatedUser
+    role = normalizeRole(authenticatedUser.app_metadata?.role || authenticatedUser.user_metadata?.role)
+    if (!['university', 'admin'].includes(role)) {
+      return NextResponse.json({ error: 'Only university staff can update accreditation records' }, { status: 403 })
+    }
+
+    const status = String(body.nsfas_accreditation_status || '')
+    const source = String(body.nsfas_accreditation_source || '').trim()
+    const expiresOn = String(body.nsfas_accredited_until || '').trim()
+    if (!['unverified', 'verified', 'rejected'].includes(status)) {
+      return NextResponse.json({ error: 'Invalid accreditation status' }, { status: 400 })
+    }
+
+    let sourceUrl = null
+    if (source) {
+      try {
+        const parsedSource = new URL(source)
+        if (parsedSource.protocol !== 'https:') throw new Error('HTTPS required')
+        sourceUrl = parsedSource.toString()
+      } catch {
+        return NextResponse.json({ error: 'Accreditation evidence must be a valid HTTPS URL' }, { status: 400 })
+      }
+    }
+
+    const expiryIsValid = /^\d{4}-\d{2}-\d{2}$/.test(expiresOn)
+      && !Number.isNaN(Date.parse(`${expiresOn}T00:00:00Z`))
+      && new Date(`${expiresOn}T00:00:00Z`).toISOString().slice(0, 10) === expiresOn
+    if (status === 'verified' && (!sourceUrl || !expiryIsValid || expiresOn < new Date().toISOString().slice(0, 10))) {
+      return NextResponse.json({ error: 'Verified accreditation requires an HTTPS evidence URL and a current expiry date' }, { status: 400 })
+    }
+
+    accreditationFields = {
+      nsfas_accreditation_status: status,
+      nsfas_accreditation_source: sourceUrl,
+      nsfas_accredited_until: expiryIsValid ? expiresOn : null,
+      nsfas_verified_at: status === 'verified' ? new Date().toISOString() : null,
+      nsfas_verified_by: status === 'verified' ? user.id : null,
+    }
+  }
+
   const listingTableName = await getListingTableName()
   const supportedColumns = await getListingSchemaColumns(listingTableName)
+  if (updatesAccreditation) {
+    const requiredColumns = Object.keys(accreditationFields)
+    if (!supabaseAdmin || !listingTableName || requiredColumns.some((column) => !supportedColumns.has(column))) {
+      return NextResponse.json({ error: 'Apply sql/add_nsfas_accreditation.sql before updating accreditation records' }, { status: 503 })
+    }
+  }
 
   const payload = {
     address: body?.address,
@@ -266,6 +325,7 @@ export async function PUT(request) {
     parking: body?.parking !== undefined && body?.parking !== null ? Number(body.parking) : undefined,
     lotSize: body?.lotSize !== undefined && body?.lotSize !== null ? Number(body.lotSize) : undefined,
     hoa: body?.hoa !== undefined && body?.hoa !== null ? Number(body.hoa) : undefined,
+    ...accreditationFields,
   }
 
   const payloadWithAliases = { ...payload }

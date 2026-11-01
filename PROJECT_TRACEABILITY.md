@@ -16,7 +16,7 @@ The application currently demonstrates the core user experience and operational 
 2. Investigate student needs and requirements and develop a framework to address them.
 3. Design, develop, and evaluate a big data analytics system for recommending NSFAS-accredited accommodation.
 
-The current application only partially addresses Objective 3: it implements a deterministic preference-scoring prototype over active rental listings. It does not contain a demonstrated big-data pipeline, authoritative NSFAS accreditation verification, or a recorded empirical recommendation evaluation. This repository also does not by itself establish the literature-review evidence for Objective 1 or participant/findings evidence for Objective 2.
+The current application partially addresses Objective 3: it implements preference scoring and a listing-linked, manually reviewed NSFAS accreditation workflow with strict eligibility filtering. It does not contain a demonstrated big-data pipeline, automatic authoritative accreditation verification, or a recorded empirical recommendation evaluation. This repository also does not by itself establish the literature-review evidence for Objective 1 or participant/findings evidence for Objective 2.
 
 ## 2. Requirements traceability
 
@@ -29,7 +29,7 @@ The table below maps the implemented functionality to the relevant code location
 | Owner listing creation and management | [app/(routes)/add-new-listing/page.jsx](app/(routes)/add-new-listing/page.jsx), [app/(routes)/edit-listing](app/(routes)/edit-listing) | Implemented |
 | Bookings and lease requests | [app/api/bookings/route.js](app/api/bookings/route.js), [app/(routes)/user/page.jsx](app/(routes)/user/page.jsx) | Implemented |
 | Preference-based accommodation ranking | [app/(routes)/user/_components/StudentRecommendations.jsx](app/(routes)/user/_components/StudentRecommendations.jsx), [app/api/listings-public/route.js](app/api/listings-public/route.js) | Implemented as a deterministic heuristic; not big-data or empirically evaluated |
-| NSFAS-accreditation filtering/verification | No authoritative accreditation field/source is wired to recommendation data | Not implemented |
+| NSFAS-accreditation filtering and evidence review | [sql/add_nsfas_accreditation.sql](sql/add_nsfas_accreditation.sql), [app/api/listings/route.js](app/api/listings/route.js), [app/(routes)/user/university/accommodations/page.jsx](app/(routes)/user/university/accommodations/page.jsx), [lib/recommendation-engine.mjs](lib/recommendation-engine.mjs) | Listing-linked manual review and strict recommendation eligibility implemented; source is not independently authenticated |
 | Literature trends and student needs/framework evidence | Not evidenced by application code; include the actual research records in the report | Not evidenced in this repository |
 | University workspace and student oversight | [app/(routes)/user/university/students/page.jsx](app/(routes)/user/university/students/page.jsx), [app/(routes)/user/_components/UniversityDashboard.jsx](app/(routes)/user/_components/UniversityDashboard.jsx) | Implemented |
 | Communications and messaging | [app/(routes)/user/messages/page.jsx](app/(routes)/user/messages/page.jsx), [app/api/messages/route.js](app/api/messages/route.js) | Implemented |
@@ -65,12 +65,13 @@ The system separates concerns into:
 - API routes for data operations and persistence
 - centralized permissions logic to decide which roles can read or write different resources
 - lightweight fallback storage for demo and local-development reliability
+- provenance-aware recommendation eligibility based on university-reviewed HTTPS evidence and an unexpired accreditation record
 
 ### 3.3 Key data flows
 
 1. Student searches or browses listings.
 2. Owner submits listings or manages bookings.
-3. University reviews student information and accommodation status.
+3. University staff review listing-specific accreditation evidence and validity dates; recommendations exclude unverified/expired listings by default.
 4. User messages are sent via the shared messaging route.
 5. Student hub records are stored through a role-aware API that supports both Supabase and fallback persistence.
 
@@ -86,7 +87,7 @@ The major implementation areas are visible in the following files:
 - Supabase connections: [utils/supabase/client.js](utils/supabase/client.js), [utils/supabase/admin.js](utils/supabase/admin.js)
 - Demo account creation scripts: [scripts/create-demo-student.js](scripts/create-demo-student.js), [scripts/create-demo-owner.js](scripts/create-demo-owner.js)
 
-The alpha version therefore contains a functional prototype of the product narrative rather than only static mockup screens.
+The alpha version therefore contains a functional prototype of the product narrative rather than only static mockup screens. Its accreditation review is manual and its analytics operate on the returned listing set; it is not evidence of an integrated NSFAS feed or a scaled big-data pipeline.
 
 ## 5. Testing and validation evidence
 

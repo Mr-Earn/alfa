@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { getAuthenticatedRequestHeaders } from '@/lib/permissions'
+import { isNsfasAccreditationVerified } from '@/lib/recommendation-engine.mjs'
 
 const defaultAccommodationForm = {
   title: '',
@@ -14,18 +15,33 @@ const defaultAccommodationForm = {
 export default function UniversityAccommodationsPage() {
   const [listings, setListings] = useState([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
   const [creating, setCreating] = useState(false)
   const [form, setForm] = useState(defaultAccommodationForm)
   const [message, setMessage] = useState('')
+  const [accreditationDrafts, setAccreditationDrafts] = useState({})
+  const [savingAccreditationId, setSavingAccreditationId] = useState(null)
+  const [accreditationMessage, setAccreditationMessage] = useState('')
 
   const loadListings = async () => {
     try {
       const headers = await getAuthenticatedRequestHeaders('university')
       const response = await fetch('/api/listings', { headers })
       const data = await response.json()
-      setListings(Array.isArray(data?.listings) ? data.listings : [])
+      if (!response.ok) throw new Error(data?.error || 'Unable to load accommodation records')
+      const accommodationListings = Array.isArray(data?.listings) ? data.listings : []
+      setListings(accommodationListings)
+      setAccreditationDrafts(Object.fromEntries(accommodationListings.map((listing) => [
+        listing.id,
+        {
+          status: listing.nsfas_accreditation_status || 'unverified',
+          source: listing.nsfas_accreditation_source || '',
+          expiresOn: listing.nsfas_accredited_until || '',
+        },
+      ])))
     } catch (error) {
       console.warn('Unable to load university accommodations', error)
+      setLoadError(error.message || 'Unable to load accommodation records')
     } finally {
       setLoading(false)
     }
@@ -62,6 +78,10 @@ export default function UniversityAccommodationsPage() {
       if (!response.ok) throw new Error(json?.error || 'Unable to create accommodation')
 
       setListings((current) => [json.listing, ...current].filter(Boolean))
+      setAccreditationDrafts((current) => ({
+        ...current,
+        [json.listing.id]: { status: 'unverified', source: '', expiresOn: '' },
+      }))
       setForm(defaultAccommodationForm)
       setMessage('Accommodation created and available to the university workspace.')
     } catch (error) {
@@ -69,6 +89,37 @@ export default function UniversityAccommodationsPage() {
       setMessage('Unable to create accommodation right now.')
     } finally {
       setCreating(false)
+    }
+  }
+
+  const saveAccreditation = async (event, listing) => {
+    event.preventDefault()
+    const draft = accreditationDrafts[listing.id] || { status: 'unverified', source: '', expiresOn: '' }
+
+    try {
+      setSavingAccreditationId(listing.id)
+      setAccreditationMessage('')
+      const headers = await getAuthenticatedRequestHeaders('university')
+      const response = await fetch('/api/listings', {
+        method: 'PUT',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: listing.id,
+          nsfas_accreditation_status: draft.status,
+          nsfas_accreditation_source: draft.source,
+          nsfas_accredited_until: draft.expiresOn,
+        }),
+      })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data?.error || 'Unable to save accreditation review')
+
+      setListings((current) => current.map((item) => item.id === listing.id ? data.listing : item))
+      setAccreditationMessage(`${listing.title || 'Accommodation'} accreditation record saved.`)
+    } catch (error) {
+      console.error('Unable to save accommodation accreditation', error)
+      setAccreditationMessage(error.message || 'Unable to save accreditation review.')
+    } finally {
+      setSavingAccreditationId(null)
     }
   }
 
@@ -94,6 +145,81 @@ export default function UniversityAccommodationsPage() {
           {message ? <span className='text-sm text-slate-600'>{message}</span> : null}
         </div>
       </form>
+
+      <section className='mt-8'>
+        <div className='mb-3'>
+          <h3 className='text-xl font-semibold text-slate-900'>NSFAS accreditation review</h3>
+          <p className='mt-1 text-sm text-slate-600'>Only mark a listing verified after checking an authoritative NSFAS or institutional source. Verified records require an HTTPS evidence URL and an expiry date.</p>
+        </div>
+        {!loading && (
+          <div className='mb-4 rounded-lg bg-slate-50 p-3 text-sm text-slate-700'>
+            Currently eligible listings: {listings.filter((listing) => isNsfasAccreditationVerified(listing)).length} of {listings.length}
+          </div>
+        )}
+        {loadError && <p role='alert' className='mb-3 text-sm text-rose-700'>{loadError}</p>}
+        {accreditationMessage && <p role='status' className='mb-3 text-sm text-slate-700'>{accreditationMessage}</p>}
+        <div className='space-y-3'>
+          {listings.map((listing) => {
+            const draft = accreditationDrafts[listing.id] || { status: 'unverified', source: '', expiresOn: '' }
+            return (
+              <form key={listing.id} onSubmit={(event) => saveAccreditation(event, listing)} className='grid gap-3 rounded-xl border border-slate-200 p-4 md:grid-cols-2'>
+                <div className='md:col-span-2'>
+                  <p className='font-medium text-slate-900'>{listing.title || 'Accommodation'}</p>
+                  <p className='text-sm text-slate-500'>{listing.address || 'Address not set'}</p>
+                </div>
+                <label className='text-sm text-slate-700'>
+                  Review status
+                  <select
+                    className='mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2'
+                    value={draft.status}
+                    onChange={(event) => setAccreditationDrafts((current) => ({
+                      ...current,
+                      [listing.id]: { ...draft, status: event.target.value },
+                    }))}
+                  >
+                    <option value='unverified'>Unverified</option>
+                    <option value='verified'>Verified</option>
+                    <option value='rejected'>Rejected</option>
+                  </select>
+                </label>
+                <label className='text-sm text-slate-700'>
+                  Accreditation expiry date
+                  <input
+                    type='date'
+                    className='mt-1 w-full rounded-lg border border-slate-200 px-3 py-2'
+                    value={draft.expiresOn}
+                    onChange={(event) => setAccreditationDrafts((current) => ({
+                      ...current,
+                      [listing.id]: { ...draft, expiresOn: event.target.value },
+                    }))}
+                  />
+                </label>
+                <label className='text-sm text-slate-700 md:col-span-2'>
+                  Evidence source URL
+                  <input
+                    type='url'
+                    placeholder='https://...'
+                    className='mt-1 w-full rounded-lg border border-slate-200 px-3 py-2'
+                    value={draft.source}
+                    onChange={(event) => setAccreditationDrafts((current) => ({
+                      ...current,
+                      [listing.id]: { ...draft, source: event.target.value },
+                    }))}
+                  />
+                </label>
+                <div className='flex items-center gap-3 md:col-span-2'>
+                  <button type='submit' disabled={savingAccreditationId === listing.id} className='rounded-lg bg-indigo-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-60'>
+                    {savingAccreditationId === listing.id ? 'Saving review...' : 'Save review'}
+                  </button>
+                  <span className='text-xs text-slate-500'>
+                    {isNsfasAccreditationVerified(listing) ? `Verified until ${listing.nsfas_accredited_until}` : 'Not eligible for NSFAS-only recommendations'}
+                  </span>
+                </div>
+              </form>
+            )
+          })}
+        </div>
+      </section>
 
       <div className='mt-6 overflow-hidden rounded-xl border border-slate-200'>
         <table className='min-w-full divide-y divide-slate-200 text-left text-sm'>

@@ -14,11 +14,15 @@ The current alpha partially addresses the third objective: it ranks active renta
 2. **Student:** set budget, area/campus text, accommodation type, lifestyle, minimum bedroom/bathroom, and parking requirements; inspect ranked listings, criterion scores, and data coverage.
 3. **Student:** open a listing and submit a lease request.
 4. **Owner:** review and approve or reject requests for their own listings; the student can then check the request status.
-5. **University:** access student and accommodation information. University staff do not decide property owners' lease requests.
+5. **University:** review each accommodation's NSFAS status against an authoritative source, record the evidence URL and expiry date, and manage student/accommodation information. University staff do not decide property owners' lease requests.
 
-The ranker uses budget (30%), area/campus text (25%), property type (15%), bedroom fit (10%), bathroom fit (5%), lifestyle text (10%), and parking (5%). Criteria only apply when relevant to the student and present in the listing. Missing criterion data contributes a neutral score and lowers the displayed data-coverage percentage. Requested minimum bedrooms/bathrooms and required parking are hard filters; missing data fails a requested hard requirement. Location is text similarity, not geographic distance. A market summary shows active listing count, median listed rent, and number priced within budget. Preferences are stored in browser local storage.
+Recommendations require current, evidence-backed NSFAS verification by default. A listing is eligible only when its status is `verified`, its recorded source is HTTPS, a verification timestamp exists, and the accreditation expiry date has not passed. Students can turn off the NSFAS-only filter to explore other rentals, which are still clearly labeled as unverified. University staff manage listing accreditation under **University workspace → Accommodations**; owners cannot set verification through the listing API.
 
-These are explainable multi-criteria analytics over the listings returned by the existing Supabase endpoint. The workspace has no large external dataset, event history, distributed processing engine, NSFAS verification source, or student relevance labels; therefore this is not yet a big-data system or an empirically validated recommender. Run focused algorithm tests with `node --test lib/recommendation-engine.test.mjs`.
+Eligible listings are ranked using budget (30%), area/campus text (25%), property type (15%), bedroom fit (10%), bathroom fit (5%), lifestyle text (10%), and parking (5%). Criteria only apply when relevant to the student and present in the listing. Missing criterion data contributes a neutral score and lowers the displayed data-coverage percentage. Requested minimum bedrooms/bathrooms and required parking are hard filters; missing data fails a requested hard requirement. Location is text similarity, not geographic distance. Market indicators show active listings, median rent, affordability, and current verified-accommodation coverage. Preferences are stored in browser local storage.
+
+Run `sql/add_nsfas_accreditation.sql` in the Supabase SQL editor before recording accreditation reviews. Until verified records with current expiry dates and HTTPS evidence are added, the NSFAS-only recommendations list will correctly show no eligible listings. The current review flow records evidence for human review; it does not connect to or automatically validate against an authoritative NSFAS data feed.
+
+This remains a prototype, not a completed big-data system: the workspace has no large external dataset, ingestion/streaming pipeline, distributed processing engine, student interaction history, or research relevance labels. No empirical recommendation evaluation has been established. Run focused algorithm tests with `node --test lib/recommendation-engine.test.mjs`.
 
 ## Out-of-scope prototype modules
 
@@ -72,8 +76,8 @@ If auth is not fully connected in your local setup, some modules may use demo-st
 
 ## Known limitations and research gaps
 
-- No big-data ingestion, storage, or processing pipeline is implemented.
-- No authoritative NSFAS accreditation source or verification workflow is connected.
+- No big-data ingestion, storage, or distributed processing pipeline is implemented.
+- Accreditation review is manual; no authoritative NSFAS source/feed is integrated, so a recorded review is not independently authenticated by this application.
 - The preference score is a heuristic, not a validated probability or proven measure of recommendation quality.
 - The prototype has not established an empirical evaluation with student outcomes or recommendation baselines.
 - Some modules use demo/fallback persistence; lease requests require Supabase.

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Search, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import ListingCard from '@/app/_components/ListingCard'
-import { getRentalMarketInsights, rankListings } from '@/lib/recommendation-engine.mjs'
+import { getRentalMarketInsights, isNsfasAccreditationVerified, rankListings } from '@/lib/recommendation-engine.mjs'
 
 const defaultPreferences = {
   budget: '1800',
@@ -14,6 +14,7 @@ const defaultPreferences = {
   minBedrooms: '0',
   minBathrooms: '0',
   requiresParking: false,
+  requireNsfasAccreditation: true,
 }
 
 function compareListingPrice(firstListing, secondListing, direction = 1) {
@@ -63,6 +64,7 @@ export default function StudentRecommendations() {
             ? String(Math.floor(minBathrooms))
             : defaultPreferences.minBathrooms,
           requiresParking: Boolean(saved.requiresParking),
+          requireNsfasAccreditation: saved.requireNsfasAccreditation !== false,
           campus: ['near-campus', 'shared-flat', 'private-room'].includes(saved.campus) ? '' : String(saved.campus || ''),
           accommodationType,
           lifestyle: Object.hasOwn(lifestyleKeywords, saved.lifestyle) ? saved.lifestyle : defaultPreferences.lifestyle,
@@ -184,6 +186,13 @@ export default function StudentRecommendations() {
               <input type="checkbox" checked={preferences.requiresParking} onChange={(event) => updatePreference('requiresParking', event.target.checked)} />
               Parking is required
             </label>
+            <label className="flex items-start gap-2 text-sm text-slate-700">
+              <input className="mt-1" type="checkbox" checked={preferences.requireNsfasAccreditation} onChange={(event) => updatePreference('requireNsfasAccreditation', event.target.checked)} />
+              <span>
+                Only recommend currently verified NSFAS-accredited listings
+                <span className="mt-1 block text-xs text-slate-500">A university reviewer must record an HTTPS evidence source and current expiry date.</span>
+              </span>
+            </label>
             <Button type="submit" className="w-full">Save preferences</Button>
             {savedMessage && <p role="status" className="text-sm text-emerald-700">{savedMessage}</p>}
           </form>
@@ -195,7 +204,7 @@ export default function StudentRecommendations() {
             {!loading && !loadError && <span className="text-sm text-slate-500">{showAllListings ? `${recommendedListings.length} matches` : `${Math.min(recommendedListings.length, 3)} of ${recommendedListings.length} matches`}</span>}
           </div>
           {!loading && !loadError && (
-            <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-5">
               <div className="rounded-lg bg-slate-50 p-3">
                 <p className="text-xs text-slate-500">Active rental listings</p>
                 <p className="mt-1 font-semibold text-slate-900">{marketInsights.activeListings}</p>
@@ -206,11 +215,19 @@ export default function StudentRecommendations() {
                   {marketInsights.medianRent === null ? 'Not available' : `R${Math.round(marketInsights.medianRent).toLocaleString()}/mo`}
                 </p>
               </div>
-              <div className="col-span-2 rounded-lg bg-slate-50 p-3 sm:col-span-1">
+              <div className="rounded-lg bg-slate-50 p-3">
                 <p className="text-xs text-slate-500">Listings within budget</p>
                 <p className="mt-1 font-semibold text-slate-900">
                   {marketInsights.withinBudget === null ? 'Set a budget' : `${marketInsights.withinBudget} of ${marketInsights.pricedListings}`}
                 </p>
+              </div>
+              <div className="rounded-lg bg-slate-50 p-3">
+                <p className="text-xs text-slate-500">Currently verified NSFAS</p>
+                <p className="mt-1 font-semibold text-slate-900">{marketInsights.verifiedNsfasListings} of {marketInsights.activeListings}</p>
+              </div>
+              <div className="rounded-lg bg-slate-50 p-3">
+                <p className="text-xs text-slate-500">Listings with location</p>
+                <p className="mt-1 font-semibold text-slate-900">{marketInsights.listingsWithLocation} of {marketInsights.activeListings}</p>
               </div>
             </div>
           )}
@@ -241,7 +258,13 @@ export default function StudentRecommendations() {
                   <span className="absolute right-2 top-2 z-10 rounded-full bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-700">{score}% match</span>
                   <ListingCard listing={listing} availabilityCount={0} />
                   <div className="space-y-2 px-3 pb-3">
-                    <p className="text-xs font-medium text-amber-800">NSFAS accreditation: not verified by this app</p>
+                    {isNsfasAccreditationVerified(listing) ? (
+                      <p className="text-xs font-medium text-emerald-800">
+                        NSFAS accreditation verified by a university reviewer through {new URL(listing.nsfas_accreditation_source).hostname}; valid until {listing.nsfas_accredited_until}.
+                      </p>
+                    ) : (
+                      <p className="text-xs font-medium text-amber-800">NSFAS accreditation: not verified; this listing is not eligible when the NSFAS-only filter is enabled.</p>
+                    )}
                     <p className="text-xs text-slate-500">Criteria coverage: {coverage}%</p>
                     <div className="flex flex-wrap gap-2">
                       {components.map((component) => (
@@ -254,7 +277,11 @@ export default function StudentRecommendations() {
                 </article>
               ))}
             </div>
-          ) : <p className="text-sm text-slate-500">{availableListings.length ? 'No rentals match the current search and bedroom filter. Try adjusting your preferences.' : 'No active rentals are available yet.'}</p>}
+          ) : <p className="text-sm text-slate-500">{availableListings.length
+            ? preferences.requireNsfasAccreditation && !marketInsights.verifiedNsfasListings
+              ? 'No active listing has current, evidence-backed NSFAS verification yet. University staff can review accommodation records in the university workspace.'
+              : 'No rentals match the current search and accommodation requirements. Try adjusting your preferences.'
+            : 'No active rentals are available yet.'}</p>}
           {!loading && !loadError && recommendedListings.length > 3 && (
             <button type="button" onClick={() => setShowAllListings((current) => !current)} className="mt-4 text-sm font-medium text-blue-700 hover:underline">
               {showAllListings ? 'Show top 3' : `Show all ${recommendedListings.length} matches`}

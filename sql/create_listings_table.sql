@@ -20,6 +20,12 @@ CREATE TABLE IF NOT EXISTS public.listings (
   area numeric,
   builtIn numeric,
   parking integer,
+  nsfas_accreditation_status text NOT NULL DEFAULT 'unverified'
+    CHECK (nsfas_accreditation_status IN ('unverified', 'verified', 'rejected')),
+  nsfas_accreditation_source text,
+  nsfas_accredited_until date,
+  nsfas_verified_at timestamptz,
+  nsfas_verified_by text,
   lotSize numeric,
   hoa numeric,
   created_at timestamptz DEFAULT now(),
@@ -30,3 +36,5 @@ CREATE INDEX IF NOT EXISTS idx_listings_createdBy ON public.listings (createdBy)
 CREATE INDEX IF NOT EXISTS idx_listings_bedroom ON public.listings (bedroom);
 CREATE INDEX IF NOT EXISTS idx_listings_type_active ON public.listings (type, active);
 CREATE INDEX IF NOT EXISTS idx_listings_city ON public.listings (city);
+CREATE INDEX IF NOT EXISTS idx_listings_nsfas_accreditation
+  ON public.listings (nsfas_accreditation_status, nsfas_accredited_until);

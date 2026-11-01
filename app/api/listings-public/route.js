@@ -4,8 +4,10 @@ import { supabaseAdmin } from '@/utils/supabase/admin'
 export const dynamic = 'force-dynamic'
 
 function normalizeListingRow(row = {}) {
+  const publicFields = { ...row }
+  delete publicFields.nsfas_verified_by
   return {
-    ...row,
+    ...publicFields,
     createdBy: row.createdBy ?? row.createdby ?? null,
     propertyType: row.propertyType ?? row.propertytype ?? null,
   }
