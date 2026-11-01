@@ -6,39 +6,30 @@ import GooglePlacesAutocomplete, { geocodeByAddress, getLatLng } from 'react-goo
 
 function GoogleAddressSearch({ selectedAddress, setCoordinates, value, onChange }) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_PLACE_API_KEY || process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ''
-  const [manualValue, setManualValue] = useState(value || '')
-  const { isLoaded, loadError } = useJsApiLoader({
-    id: 'google-map-script',
-    googleMapsApiKey: apiKey,
-    libraries: ['places'],
-    preventGoogleFontsLoading: true,
-    skip: !apiKey,
-  })
-
-  const canUseGooglePlaces = Boolean(apiKey) && !loadError && isLoaded
+  const [inputValue, setInputValue] = useState(value || '')
+  const [selectedPlace, setSelectedPlace] = useState(null)
 
   useEffect(() => {
     if (value !== undefined) {
-      setManualValue(value || '')
+      setInputValue(value || '')
+      if (!value || selectedPlace?.label !== value) {
+        setSelectedPlace(null)
+      }
     }
-  }, [value])
+  }, [value, selectedPlace?.label])
 
   const updateAddress = (nextValue) => {
     const normalizedValue = typeof nextValue === 'string' ? nextValue.trim() : ''
-    setManualValue(normalizedValue)
+    setInputValue(normalizedValue)
+    setSelectedPlace(null)
 
     if (typeof onChange === 'function') {
       onChange(normalizedValue)
-      return
-    }
-
-    if (typeof selectedAddress === 'function') {
+    } else if (typeof selectedAddress === 'function') {
       selectedAddress(normalizedValue ? { label: normalizedValue } : null)
     }
 
-    if (!normalizedValue) {
-      setCoordinates?.(null)
-    }
+    setCoordinates?.(null)
   }
 
   const handlePlaceChange = (place) => {
@@ -48,11 +39,24 @@ function GoogleAddressSearch({ selectedAddress, setCoordinates, value, onChange 
     }
 
     const nextValue = place.label || ''
-    updateAddress(nextValue)
+    setInputValue(nextValue)
+    setSelectedPlace(place)
+    if (typeof onChange === 'function') {
+      onChange(nextValue)
+    } else if (typeof selectedAddress === 'function') {
+      selectedAddress(nextValue ? { label: nextValue } : null)
+    }
     geocodeByAddress(nextValue)
       .then((result) => getLatLng(result[0]))
       .then(({ lat, lng }) => setCoordinates?.({ lat, lng }))
       .catch(() => setCoordinates?.(null))
+  }
+
+  const handleInputChange = (nextValue, actionMeta) => {
+    if (actionMeta.action === 'input-change') {
+      updateAddress(nextValue)
+    }
+    return nextValue
   }
 
   const handleManualAddressChange = (event) => {
@@ -63,7 +67,7 @@ function GoogleAddressSearch({ selectedAddress, setCoordinates, value, onChange 
     <div className='flex w-full flex-col gap-2'>
       <div className='flex w-full items-center'>
         <MapPin className='h-10 w-10 rounded-l-lg bg-purple-200 p-2 text-primary' />
-        {canUseGooglePlaces ? (
+        {apiKey ? (
           <div className='flex-1'>
             <GooglePlacesAutocomplete
               apiKey={apiKey}
@@ -71,7 +75,12 @@ function GoogleAddressSearch({ selectedAddress, setCoordinates, value, onChange 
                 placeholder: 'Search Property Address',
                 isClearable: true,
                 className: 'w-full',
-                value: manualValue ? { label: manualValue, value: manualValue } : null,
+                inputValue,
+                value: selectedPlace,
+                onInputChange: handleInputChange,
+                noOptionsMessage: ({ inputValue: searchValue }) => (
+                  searchValue ? 'No suggestions available. Use the typed address.' : 'Start typing an address.'
+                ),
                 onChange: handlePlaceChange,
               }}
             />

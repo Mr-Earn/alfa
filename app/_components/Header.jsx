@@ -23,16 +23,10 @@ function Header() {
   const isSignedIn = !!user;
   const role = isSignedIn ? normalizeRole(user?.user_metadata?.role || 'student') : 'guest'
   const showPostAd = isSignedIn && ['owner', 'admin', 'university'].includes(role)
-  const showStudentHub = isSignedIn && role === 'student'
   const showRentNav = !['owner', 'admin'].includes(role)
-  const showAgentFinderNav = !['owner', 'admin'].includes(role)
-  const isUniversityRoute = path?.startsWith('/user/university')
   const universityTabs = [
-    { href: '/user/university', label: 'Overview' },
     { href: '/user/university/students', label: 'Students' },
-    { href: '/user/university/communications', label: 'Communications' },
-    { href: '/user/university/compliance', label: 'Compliance' },
-    { href: '/user/university/events', label: 'Events' },
+    { href: '/user/university/accommodations', label: 'Accommodations' },
   ]
 
   return (
@@ -57,11 +51,6 @@ function Header() {
               <li className={`cursor-pointer text-sm font-medium transition ${path?.startsWith('/user/admin') ? 'text-blue-600' : 'text-slate-600 hover:text-slate-900'}`}>Admin Console</li>
             </Link>
           )}
-          {showStudentHub && (
-            <Link href={'/student-hub'} >
-              <li className={`cursor-pointer text-sm font-medium transition ${path?.startsWith('/student-hub') ? 'text-blue-600' : 'text-slate-600 hover:text-slate-900'}`}>Student Hub</li>
-            </Link>
-          )}
           {role === 'student' && (
             <>
               <Link href={'/user/recommendations'}>
@@ -73,16 +62,7 @@ function Header() {
               <Link href={'/user/messages'}>
                 <li className={`cursor-pointer text-sm font-medium transition ${path === '/user/messages' ? 'text-blue-600' : 'text-slate-600 hover:text-slate-900'}`}>Messages</li>
               </Link>
-              <Link href={'/user/events'}>
-                <li className={`cursor-pointer text-sm font-medium transition ${path === '/user/events' ? 'text-blue-600' : 'text-slate-600 hover:text-slate-900'}`}>Events</li>
-              </Link>
-              <Link href={'/user/marketplace'}>
-                <li className={`cursor-pointer text-sm font-medium transition ${path === '/user/marketplace' ? 'text-blue-600' : 'text-slate-600 hover:text-slate-900'}`}>Marketplace</li>
-              </Link>
             </>
-          )}
-          {showAgentFinderNav && (
-            <li className='cursor-pointer text-sm font-medium text-slate-600 transition hover:text-slate-900'>Agent Finder</li>
           )}
           {role === 'university' && universityTabs.map((tab) => (
             <Link key={tab.href} href={tab.href}>
@@ -140,9 +120,6 @@ function Header() {
                 </DropdownMenuItem>
                 <DropdownMenuItem>
                   <Link href={'/user/messages'}>Messages</Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <Link href={'/user/events'}>Events</Link>
                 </DropdownMenuItem>
               </>
             ) : (

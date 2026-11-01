@@ -1,7 +1,6 @@
 "use client"
-import React, { useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import { Label } from "@/components/ui/label"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import {
     Select,
     SelectContent,
@@ -13,7 +12,7 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
 import { Formik } from 'formik'
-import { usePathname, useRouter } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/utils/supabase/client'
 import { toast } from 'sonner'
 import useSupabaseUser from '@/utils/supabase/useUser'
@@ -40,28 +39,82 @@ function EditListing({ params }) {
     const [listing, setListing] = useState([]);
     const [images, setImages] = useState([]);
     const [loading, setLoading] = useState(false);
-    useEffect(() => {
-        console.log(user?.user_metadata?.avatar_url)
-        // console.log(params.split('/')[2]);
-        user && verifyUserRecord();
-    }, [user]);
+    const [listingLoading, setListingLoading] = useState(true);
+    const [imageUploadKey, setImageUploadKey] = useState(0);
+    const verifyUserRecord = useCallback(async () => {
+        setListingLoading(true)
+        try {
+            const headers = await getAuthenticatedRequestHeaders(user?.user_metadata?.role || 'owner')
+            const response = await fetch(`/api/listings?id=${encodeURIComponent(params.id)}`, {
+                headers,
+                cache: 'no-store',
+            })
+            const result = await response.json()
 
-    const verifyUserRecord = async () => {
-        const { data, error } = await supabase
-            .from('listings')
-            .select('*,listingImages(listing_id,url)')
-            .eq('createdby', user?.email)
-            .eq('id', params.id);
-        if (data) {
-            console.log(data)
-            setListing(data[0]);
+            if (!response.ok) {
+                throw new Error(result?.error || 'Unable to load this listing')
+            }
+
+            const data = result?.listings?.[0]
+            if (!data) {
+                throw new Error('Listing not found or you do not have permission to edit it')
+            }
+
+            const { data: imageRows, error: imageError } = await supabase
+                .from('listingImages')
+                .select('listing_id,url')
+                .eq('listing_id', params.id)
+
+            if (!imageError) {
+                data.listingImages = imageRows || []
+            }
+            setListing(data)
+        } catch (error) {
+            console.error('Unable to load listing for editing:', error)
+            toast(error?.message || 'Unable to load this listing')
+            router.replace('/user/owner')
+        } finally {
+            setListingLoading(false)
         }
-        if (data?.length <= 0) {
-            router.replace('/')
+    }, [params.id, router, user?.user_metadata?.role])
+
+    useEffect(() => {
+        let active = true
+
+        if (user?.email) {
+            verifyUserRecord()
+        } else {
+            supabase.auth.getUser().then(({ data, error }) => {
+                if (!active) return
+                if (error) {
+                    console.error('Unable to verify user before editing listing:', error)
+                    toast('Please sign in to edit this listing')
+                    router.replace('/sign-in')
+                } else if (data.user) {
+                    verifyUserRecord()
+                } else {
+                    router.replace('/sign-in')
+                }
+            }).catch((error) => {
+                if (!active) return
+                console.error('Unable to verify user before editing listing:', error)
+                toast('Please sign in to edit this listing')
+                router.replace('/sign-in')
+            })
         }
-    }
+
+        return () => {
+            active = false
+        }
+    }, [router, user?.email, verifyUserRecord])
 
     const onSubmitHandler = async (formValue) => {
+        const monthlyRent = Number(formValue.price)
+        if (!Number.isFinite(monthlyRent) || monthlyRent <= 0) {
+            toast('Enter a monthly rent amount greater than zero.')
+            return false
+        }
+
         setLoading(true);
 
         const supportedUpdateFields = [
@@ -101,8 +154,7 @@ function EditListing({ params }) {
             }
 
             if (field === 'type') {
-                const nextValue = formValue.type ?? listing?.type ?? 'Rent'
-                normalizedValues.type = nextValue
+                normalizedValues.type = 'Rent'
                 continue
             }
 
@@ -160,102 +212,103 @@ function EditListing({ params }) {
             }
         }
 
-        const headers = await getAuthenticatedRequestHeaders(user?.user_metadata?.role || 'owner')
-        const response = await fetch('/api/listings', {
-            method: 'PUT',
-            headers: { ...headers, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: params.id, ...normalizedValues }),
-        })
-        const result = await response.json()
+        try {
+            const headers = await getAuthenticatedRequestHeaders(user?.user_metadata?.role || 'owner')
+            const response = await fetch('/api/listings', {
+                method: 'PUT',
+                headers,
+                body: JSON.stringify({ id: params.id, ...normalizedValues }),
+            })
+            const result = await response.json()
 
-        if (!response.ok) {
-            console.error('Update listing error:', result)
-            toast(result?.error || 'Unable to update listing')
-            setLoading(false)
-            return
-        }
-
-        if (result?.listing) {
-            setListing((current) => ({ ...current, ...result.listing }))
-            toast('Listing updated and published');
-            setLoading(false)
-        }
-        for (const image of images) {
-            setLoading(true)
-            try {
-                const file = image;
-                const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-                const fileExt = (file.type || 'image/jpeg').split('/').pop() || 'jpg';
-                const { data, error } = await supabase.storage
-                    .from('accommodations')
-                    .upload(`${fileName}.${fileExt}`, file, {
-                        contentType: file.type || `image/${fileExt}`,
-                        upsert: false
-                    });
-
-                if (error) {
-                    console.error('Edit listing image upload error:', error)
-                    const isMissingTable = error?.message?.includes('table') || error?.message?.includes('not found') || error?.code === 'PGRST205'
-                    if (!isMissingTable) {
-                        toast('Error while uploading images')
-                    }
-                    setLoading(false)
-                    continue
-                }
-
-                const imageUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/accommodations/${fileName}.${fileExt}`;
-                const { data: insertData, error: insertError } = await supabase
-                    .from('listingImages')
-                    .insert([
-                        { url: imageUrl, listing_id: params?.id }
-                    ])
-                    .select();
-
-                if (insertData) {
-                    setLoading(false);
-                }
-                if (insertError) {
-                    console.error('Edit listing image insert error:', insertError)
-                    const isMissingTable = insertError?.message?.includes('table') || insertError?.message?.includes('not found') || insertError?.code === 'PGRST205'
-                    if (!isMissingTable) {
-                        toast('Error saving image reference')
-                    }
-                    setLoading(false)
-                }
-            } catch (imgError) {
-                console.error('Edit listing image processing error:', imgError)
-                setLoading(false)
+            if (!response.ok) {
+                throw new Error(result?.error || 'Unable to update listing')
             }
-            setLoading(false);
-        }
 
+            if (result?.listing) {
+                setListing((current) => ({ ...current, ...result.listing }))
+            }
+
+            if (images.length) {
+                const formData = new FormData()
+                Array.from(images).forEach((image) => formData.append('images', image))
+                const uploadHeaders = await getAuthenticatedRequestHeaders(user?.user_metadata?.role || 'owner')
+                delete uploadHeaders['Content-Type']
+
+                const uploadResponse = await fetch(`/api/listings/${encodeURIComponent(params.id)}/images`, {
+                    method: 'POST',
+                    headers: uploadHeaders,
+                    body: formData,
+                })
+                const uploadResult = await uploadResponse.json()
+
+                if (!uploadResponse.ok) {
+                    throw new Error(uploadResult?.error || 'Unable to upload listing images')
+                }
+
+                setListing((current) => ({
+                    ...current,
+                    listingImages: [...(current?.listingImages || []), ...(uploadResult.images || [])],
+                }))
+                setImages([])
+                setImageUploadKey((current) => current + 1)
+            }
+
+            toast('Listing saved.')
+            return true
+        } catch (error) {
+            console.error('Unable to save listing:', error)
+            toast(error?.message || 'Unable to save listing')
+            return false
+        } finally {
+            setLoading(false)
+        }
     }
 
-    const publishBtnHandler=async()=>{
-        setLoading(true)
-        const { data, error } = await supabase
-        .from('listings')
-        .update({ active: true })
-        .eq('id', params?.id)
-        .select()
+    const publishBtnHandler = async (formValues) => {
+        const saved = await onSubmitHandler(formValues)
+        if (!saved) return
 
-        if(data)
-        {
-            setLoading(false)
+        setLoading(true)
+        try {
+            const headers = await getAuthenticatedRequestHeaders(user?.user_metadata?.role || 'owner')
+            const response = await fetch('/api/listings', {
+                method: 'PUT',
+                headers,
+                body: JSON.stringify({ id: params.id, active: true }),
+            })
+            const result = await response.json()
+
+            if (!response.ok) {
+                throw new Error(result?.error || 'Unable to publish listing')
+            }
+
             toast('Listing published!')
+            router.replace(`/view-listing/${encodeURIComponent(params.id)}`)
+        } catch (error) {
+            console.error('Unable to publish listing:', error)
+            toast(error?.message || 'Unable to publish listing')
+        } finally {
+            setLoading(false)
         }
-        
     }
 
     return (
-        <div className='px-10 md:px-36 my-10'>
-            <h2 className='font-bold text-2xl'>Enter some more details about your listing</h2>
+        <div className='mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8'>
+            <header className='mb-6 space-y-2'>
+                <p className='text-sm font-semibold uppercase tracking-wide text-blue-600'>Step 2 of 2 · Accommodation</p>
+                <h2 className='text-3xl font-bold tracking-tight text-slate-900'>Complete your accommodation details</h2>
+                <p className='text-slate-600'>Add the monthly rent, room details, and photos students need to make a decision.</p>
+            </header>
 
+            {listingLoading ? (
+                <p className='mt-6 text-slate-600'>Loading listing details...</p>
+            ) : (
             <Formik
                 enableReinitialize
                 initialValues={{
                     title: listing?.title || '',
-                    type: listing?.type || 'Rent',
+                    type: 'Rent',
                     propertyType: listing?.propertyType || 'House',
                     description: listing?.description || '',
                     price: listing?.price ?? 0,
@@ -280,46 +333,34 @@ function EditListing({ params }) {
                     handleSubmit,
                     setFieldValue
                 }) => (
-                    <form onSubmit={handleSubmit}>
-                        <div>
-                            <div className='p-5 border rounded-lg shadow-md grid gap-7 mt-6'>
-                                <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10'>
+                    <form onSubmit={handleSubmit} className='space-y-6'>
+                            <section className='rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8'>
+                                <div className='mb-6'>
+                                    <h3 className='text-lg font-semibold text-slate-900'>Overview</h3>
+                                    <p className='mt-1 text-sm text-slate-500'>Give your accommodation a clear title and select its type.</p>
+                                </div>
+                                <div className='grid grid-cols-1 gap-6 md:grid-cols-2'>
                                     <div className='flex gap-2 flex-col'>
-                                        <h2 className='text-gray-500'>Listing title</h2>
+                                        <Label htmlFor='listing-title'>Listing title *</Label>
                                         <Input
+                                            id='listing-title'
                                             type="text"
                                             placeholder="e.g. Modern Studio for Students"
                                             name="title"
                                             value={values.title}
                                             onChange={handleChange}
+                                            required
                                         />
                                     </div>
 
                                     <div className='flex gap-2 flex-col'>
-                                        <h2 className='text-gray-500'>Do you want to Rent it Sell it?</h2>
-                                        <RadioGroup
-                                            value={values.type || 'Rent'}
-                                            onValueChange={(v) => setFieldValue('type', v)}
-                                        >
-                                            <div className="flex items-center space-x-2">
-                                                <RadioGroupItem value="Sell" id="Sell" />
-                                                <Label htmlFor="Sell" className="text-lg">Sell</Label>
-                                            </div>
-                                            <div className="flex items-center space-x-2">
-                                                <RadioGroupItem value="Rent" id="Rent" />
-                                                <Label htmlFor="Rent" className="text-lg">Rent</Label>
-                                            </div>
-                                        </RadioGroup>
-
-                                    </div>
-                                    <div className='flex gap-2 flex-col'>
-                                        <h2 className='text-gray-500'>Property Type</h2>
+                                        <Label htmlFor='property-type'>Property type</Label>
                                         <Select
                                             value={values.propertyType || 'House'}
                                             onValueChange={(e) => setFieldValue('propertyType', e)}
                                             name="propertyType"
                                         >
-                                            <SelectTrigger className="w-[180px]">
+                                            <SelectTrigger id='property-type' className="w-full">
                                                 <SelectValue placeholder={listing?.propertyType ? listing?.propertyType : "Select Property Type"} />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -333,91 +374,109 @@ function EditListing({ params }) {
                                         </Select>
                                     </div>
                                 </div>
-                                <div className='grid  grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10'>
+                            </section>
+
+                            <section className='rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8'>
+                                <div className='mb-6'>
+                                    <h3 className='text-lg font-semibold text-slate-900'>Rooms and property</h3>
+                                    <p className='mt-1 text-sm text-slate-500'>Share the key features of the accommodation.</p>
+                                </div>
+                                <div className='grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3'>
                                     <div className='flex gap-2 flex-col'>
-                                        <h2 className='text-gray-500'>Bedroom</h2>
-                                        <Input type="number" placeholder="Ex.2"
-                                            value={values.bedroom}
-                                            name="bedroom"
-                                            onChange={handleChange}
+                                        <Label htmlFor='bedroom'>Bedrooms</Label>
+                                        <Input id='bedroom' type="number" min="0" step="1" placeholder="e.g. 2"
+                                             value={values.bedroom}
+                                             name="bedroom"
+                                             onChange={handleChange}
                                         />
                                     </div>
                                     <div className='flex gap-2 flex-col'>
-                                        <h2 className='text-gray-500'   >Bathroom</h2>
-                                        <Input type="number" placeholder="Ex.2" name="bathroom"
-                                            onChange={handleChange}
-                                            value={values.bathroom} />
+                                        <Label htmlFor='bathroom'>Bathrooms</Label>
+                                        <Input id='bathroom' type="number" min="0" step="1" placeholder="e.g. 1" name="bathroom"
+                                             onChange={handleChange}
+                                             value={values.bathroom} />
                                     </div>
-                                    <div className='flex gap-2 flex-col'   >
-                                        <h2 className='text-gray-500'>Built In</h2>
-                                        <Input type="number" placeholder="Ex.1900 Sq.ft"
+                                    <div className='flex gap-2 flex-col'>
+                                        <Label htmlFor='built-in'>Year built</Label>
+                                        <Input id='built-in' type="number" min="1800" step="1" placeholder="e.g. 2010"
                                             onChange={handleChange}
                                             value={values.builtIn} name="builtIn" />
                                     </div>
-
-                                </div>
-                                <div className='grid  grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10'>
                                     <div className='flex gap-2 flex-col'>
-                                        <h2 className='text-gray-500'>Parking</h2>
-                                        <Input type="number" placeholder="Ex.2" name="parking"
-                                            onChange={handleChange}
-                                            value={values.parking}
+                                        <Label htmlFor='parking'>Parking spaces</Label>
+                                        <Input id='parking' type="number" min="0" step="1" placeholder="e.g. 1" name="parking"
+                                             onChange={handleChange}
+                                             value={values.parking}
                                         />
                                     </div>
                                     <div className='flex gap-2 flex-col'>
-                                        <h2 className='text-gray-500'>Lot Size (Sq.Ft)</h2>
-                                        <Input type="number" placeholder="" name="lotSize"
-                                            onChange={handleChange}
-                                            value={values.lotSize} />
+                                        <Label htmlFor='lot-size'>Lot size (sq. ft.)</Label>
+                                        <Input id='lot-size' type="number" min="0" step="any" placeholder="e.g. 1200" name="lotSize"
+                                             onChange={handleChange}
+                                             value={values.lotSize} />
                                     </div>
                                     <div className='flex gap-2 flex-col'>
-                                        <h2 className='text-gray-500'>Area (Sq.Ft)</h2>
-                                        <Input type="number" placeholder="Ex.1900" name="area"
-                                            onChange={handleChange}
-                                            value={values.area} />
-                                    </div>
-
-                                </div>
-                                <div className='grid  grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10'>
-                                    <div className='flex gap-2 flex-col'>
-                                        <h2 className='text-gray-500'>Selling Price (R)</h2>
-                                        <Input type="number" placeholder="400000" name="price"
-                                            onChange={handleChange}
-                                            value={values.price} />
-                                    </div>
-                                    <div className='flex gap-2 flex-col'>
-                                        <h2 className='text-gray-500'>HOA (Per Month) (R)</h2>
-                                        <Input type="number"
-                                            value={values.hoa} placeholder="100" onChange={handleChange}
-                                            name="hoa" />
-                                    </div>
-
-
-                                </div>
-                                <div className='grid  grid-cols-1  gap-10'>
-                                    <div className='flex gap-2 flex-col'>
-                                        <h2 className='text-gray-500'>Description</h2>
-                                        <Textarea placeholder="" name="description"
-                                            onChange={handleChange}
-                                            value={values.description} />
+                                        <Label htmlFor='area'>Floor area (sq. ft.)</Label>
+                                        <Input id='area' type="number" min="0" step="any" placeholder="e.g. 850" name="area"
+                                             onChange={handleChange}
+                                             value={values.area} />
                                     </div>
                                 </div>
-                                <div>
-                                    <h2 className='font-lg text-gray-500 my-2'>Upload Property Images</h2>
+                            </section>
+
+                            <section className='rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8'>
+                                <div className='mb-6'>
+                                    <h3 className='text-lg font-semibold text-slate-900'>Monthly cost</h3>
+                                    <p className='mt-1 text-sm text-slate-500'>Set the monthly rent students will pay for this accommodation.</p>
+                                </div>
+                                <div className='grid grid-cols-1 gap-6 md:grid-cols-2'>
+                                    <div className='flex flex-col gap-2'>
+                                        <Label htmlFor='monthly-rent'>Monthly rent *</Label>
+                                        <div className='relative'>
+                                             <span className='pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-slate-500'>R</span>
+                                             <Input id='monthly-rent' className='pl-8' type="number" min="1" step="1" placeholder="e.g. 4,500" name="price"
+                                             onChange={handleChange}
+                                             value={values.price} required />
+                                        </div>
+                                        <p className='text-xs text-slate-500'>Enter the rent for one month.</p>
+                                    </div>
+                                    <div className='flex gap-2 flex-col'>
+                                        <Label htmlFor='hoa'>Additional monthly fees (R)</Label>
+                                        <Input id='hoa' type="number" min="0" step="1"
+                                             value={values.hoa} placeholder="100" onChange={handleChange}
+                                             name="hoa" />
+                                    </div>
+                                </div>
+                            </section>
+
+                            <section className='rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8'>
+                                <div className='mb-6'>
+                                    <h3 className='text-lg font-semibold text-slate-900'>Description and photos</h3>
+                                    <p className='mt-1 text-sm text-slate-500'>Help students understand what makes this place a good fit.</p>
+                                </div>
+                                <div className='flex flex-col gap-2'>
+                                        <Label htmlFor='description'>Description</Label>
+                                        <Textarea id='description' rows={5} placeholder="Describe the accommodation, included amenities, and nearby transport or campus access." name="description"
+                                             onChange={handleChange}
+                                             value={values.description} />
+                                </div>
+                                <div className='mt-6'>
+                                    <h3 className='mb-2 text-sm font-medium text-slate-700'>Accommodation photos</h3>
                                     <FileUpload
+                                        key={imageUploadKey}
                                         setImages={(value) => setImages(value)}
                                         imageList={listing.listingImages}
                                     />
                                 </div>
-                                <div className='flex gap-7 justify-end'>
+                                <div className='mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end'>
 
-                                    <Button type="submit" disabled={loading} variant="outline" className="text-primary border-primary">
+                                    <Button type="submit" disabled={loading} variant="outline" className="text-primary border-primary sm:min-w-32">
                                         {loading ? <Loader className='animate-spin' /> : 'Save'}
                                     </Button>
 
                                     <AlertDialog>
                                         <AlertDialogTrigger asChild>
-                                        <Button type="button" disabled={loading} className="">
+                                        <Button type="button" disabled={loading} className="sm:min-w-40">
                                         {loading ? <Loader className='animate-spin' /> : 'Save & Publish'}
                                     </Button>
                                         </AlertDialogTrigger>
@@ -430,7 +489,10 @@ function EditListing({ params }) {
                                             </AlertDialogHeader>
                                             <AlertDialogFooter>
                                                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                <AlertDialogAction onClick={()=>publishBtnHandler()} >
+                                                <AlertDialogAction onClick={(event) => {
+                                                    event.preventDefault()
+                                                    publishBtnHandler(values)
+                                                }}>
                                                     {loading?<Loader className='animate-spin'/>:'Continue'}
                                                     </AlertDialogAction>
                                             </AlertDialogFooter>
@@ -439,10 +501,10 @@ function EditListing({ params }) {
 
 
                                 </div>
-                            </div>
-                        </div>
+                            </section>
                     </form>)}
             </Formik>
+            )}
         </div>
     )
 }

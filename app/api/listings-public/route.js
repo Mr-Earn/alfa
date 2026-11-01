@@ -78,7 +78,35 @@ export async function GET(request) {
       return NextResponse.json({ listings: [] }, { status: 200 })
     }
 
-    const listings = (data || []).map(normalizeListingRow)
+    const listingRows = data || []
+    let imageRows = []
+
+    if (listingRows.length) {
+      const { data: images, error: imagesError } = await supabaseAdmin
+        .from('listingImages')
+        .select('id,listing_id,url')
+        .in('listing_id', listingRows.map((listing) => listing.id))
+
+      if (imagesError) {
+        console.error('Supabase error fetching public listing images:', imagesError)
+        return NextResponse.json({ error: 'Unable to load listing images' }, { status: 500 })
+      }
+
+      imageRows = images || []
+    }
+
+    const imagesByListingId = new Map()
+    for (const image of imageRows) {
+      const listingKey = String(image.listing_id)
+      const listingImages = imagesByListingId.get(listingKey) || []
+      listingImages.push(image)
+      imagesByListingId.set(listingKey, listingImages)
+    }
+
+    const listings = listingRows.map((row) => ({
+      ...normalizeListingRow(row),
+      listingImages: imagesByListingId.get(String(row.id)) || [],
+    }))
     return NextResponse.json({ listings }, {
       status: 200,
       headers: { 'Cache-Control': 'no-store' },

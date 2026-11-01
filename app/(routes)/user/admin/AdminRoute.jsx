@@ -6,7 +6,7 @@ import AdminDashboard from '../_components/AdminDashboard'
 import { normalizeRole } from '@/lib/permissions'
 import { supabase } from '@/utils/supabase/client'
 
-const adminSectionSlugs = ['overview', 'bookings', 'moderation', 'communications', 'student-hub', 'listings', 'profiles', 'analytics']
+const adminSectionSlugs = ['overview', 'bookings', 'moderation', 'listings', 'profiles', 'analytics']
 
 export default function AdminRoute({ section }) {
   const [authorized, setAuthorized] = useState(false)

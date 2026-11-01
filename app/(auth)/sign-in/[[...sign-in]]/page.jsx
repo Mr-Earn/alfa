@@ -33,12 +33,18 @@ export default function Page() {
       const userRole = normalizeRole(data?.user?.user_metadata?.role ?? storedRole ?? 'student')
 
       if (data?.user) {
-        await supabase.auth.updateUser({ data: { role: userRole } })
-        const headers = await getAuthenticatedRequestHeaders(userRole)
-        await fetch('/api/profiles', {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ id: data.user.id, email: data.user.email, role: userRole }),
+        supabase.auth.updateUser({ data: { role: userRole } }).catch((profileError) => {
+          console.warn('Unable to update the sign-in role metadata:', profileError)
+        })
+
+        Promise.resolve(getAuthenticatedRequestHeaders(userRole)).then(async (headers) => {
+          await fetch('/api/profiles', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ id: data.user.id, email: data.user.email, role: userRole }),
+          })
+        }).catch((profileError) => {
+          console.warn('Unable to synchronize the user profile after sign-in:', profileError)
         })
       }
 

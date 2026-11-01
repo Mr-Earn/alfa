@@ -4,13 +4,9 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
 const tabs = [
-  { href: '/user/university', label: 'Overview' },
   { href: '/user/university/students', label: 'Students' },
   { href: '/user/university/accommodations', label: 'Accommodations' },
-  { href: '/user/university/communications', label: 'Communications' },
   { href: '/user/messages', label: 'Messages' },
-  { href: '/user/university/compliance', label: 'Compliance' },
-  { href: '/user/university/events', label: 'Events' },
 ]
 
 export default function UniversityLayout({ children }) {
@@ -22,7 +18,7 @@ export default function UniversityLayout({ children }) {
         <div className='flex flex-col gap-4 md:flex-row md:items-center md:justify-between'>
           <div>
             <h2 className='text-2xl font-bold text-slate-900'>University workspace</h2>
-            <p className='mt-1 text-sm text-slate-600'>Manage students, housing approvals, events, communications, and compliance from the university portal.</p>
+            <p className='mt-1 text-sm text-slate-600'>Review student records and accommodation information. Property owners decide student lease requests.</p>
           </div>
           <nav className='flex flex-wrap gap-2'>
             {tabs.map((tab) => {

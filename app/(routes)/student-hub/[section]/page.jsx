@@ -1,9 +1,5 @@
-import { notFound } from 'next/navigation'
-import StudentHubPage from '../page'
+import { redirect } from 'next/navigation'
 
-const studentHubSections = ['housing', 'support', 'community', 'finance', 'residence', 'documents', 'rewards']
-
-export default function StudentHubSectionPage({ params }) {
-  if (!studentHubSections.includes(params.section)) notFound()
-  return <StudentHubPage section={params.section} />
+export default function StudentHubSectionPage() {
+  redirect('/user/recommendations')
 }

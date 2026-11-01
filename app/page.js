@@ -1,38 +1,32 @@
 import Link from "next/link";
-import { ArrowRight, Building2, GraduationCap, MessageCircle, ShieldCheck, Sparkles, Users } from "lucide-react";
+import { ArrowRight, Building2, GraduationCap, MessageCircle, ShieldCheck, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const featureCards = [
   {
-    title: "Student dashboard",
-    description: "AI-guided accommodation matching, roommate preferences, maintenance requests, and support workflows.",
+    title: "Find accommodation",
+    description: "Set your housing preferences, compare ranked rental options, and submit a request to the property owner.",
     icon: GraduationCap,
-    href: "/student-hub",
+    href: "/user/recommendations",
   },
   {
     title: "Owner workspace",
-    description: "Create and manage listings, approve lease requests, and keep communication flowing with residents.",
+    description: "Create and manage accommodation listings, then review and decide student lease requests.",
     icon: Building2,
     href: "/user/owner",
   },
   {
-    title: "University portal",
-    description: "Coordinate student oversight, housing approvals, compliance, and campus communications from one place.",
+    title: "University accommodation",
+    description: "Review student records and manage accommodation information relevant to the student housing process.",
     icon: ShieldCheck,
-    href: "/user/university",
-  },
-  {
-    title: "Agent & admin tools",
-    description: "Support applicants, manage bookings, and monitor the full accommodation operation with role-based access.",
-    icon: Users,
-    href: "/user",
+    href: "/user/university/accommodations",
   },
 ];
 
 const steps = [
-  "Create a profile and select your role",
-  "Access the right dashboard for your workflow",
-  "Manage listings, students, approvals, and support in one place",
+  "Owners publish accommodation details",
+  "Students set preferences and compare ranked listings",
+  "Students request a property; its owner decides",
 ];
 
 export default function Home() {
@@ -44,13 +38,13 @@ export default function Home() {
             <div className="max-w-2xl">
               <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-slate-700">
                 <Sparkles className="h-4 w-4" />
-                Student accommodation, reimagined
+                Research prototype: student accommodation recommendations
               </div>
               <h1 className="text-4xl font-semibold tracking-tight text-slate-950 sm:text-5xl">
-                A modern platform for students, owners, universities, and agents.
+                Finding suitable student accommodation through preference-based ranking.
               </h1>
               <p className="mt-4 text-lg text-slate-600">
-                Discover trusted housing, manage approvals, and support every step of the student living journey from one connected experience.
+                The prototype connects owner listings to student preferences and a property-owner request decision. NSFAS accreditation is not currently verified by the system.
               </p>
               <div className="mt-6 flex flex-wrap gap-3">
                 <Link href="/rent">
@@ -71,7 +65,7 @@ export default function Home() {
             <div className="rounded-3xl border border-slate-200 bg-slate-950 p-6 text-white shadow-lg">
               <div className="mb-5 flex items-center gap-2 text-sm text-slate-300">
                 <MessageCircle className="h-4 w-4" />
-                Everything in one workspace
+                Core accommodation workflow
               </div>
               <div className="space-y-3">
                 {steps.map((step, index) => (
@@ -87,7 +81,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <section className="grid gap-4 md:grid-cols-3">
           {featureCards.map((feature) => {
             const Icon = feature.icon;
             return (
@@ -110,13 +104,10 @@ export default function Home() {
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-2xl">
               <p className="text-sm font-semibold uppercase tracking-[0.25em] text-slate-500">Why this platform</p>
-              <h2 className="mt-2 text-2xl font-semibold text-slate-950">Built to support every stage of the student housing journey.</h2>
+              <h2 className="mt-2 text-2xl font-semibold text-slate-950">A focused workflow from listing to owner decision.</h2>
               <p className="mt-3 text-slate-600">
-                From first search to final approval, the experience is structured around role-based dashboards that keep actions clear and focused.
+                Recommendations use a deterministic preference-scoring heuristic. This alpha does not implement a big-data analytics pipeline or independently confirm NSFAS accreditation.
               </p>
-            </div>
-            <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm">
-              Trusted by students, university partners, and property teams
             </div>
           </div>
         </section>

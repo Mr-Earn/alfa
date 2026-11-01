@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/utils/supabase/admin'
 import { getAuthenticatedRequestContext } from '@/lib/permissions'
@@ -33,6 +34,19 @@ async function getListingSchemaColumns(listingTableName) {
   } catch {
     return new Set()
   }
+}
+
+async function listingHasColumn(listingTableName, columnName) {
+  if (!supabaseAdmin || !listingTableName) return false
+  const { error } = await supabaseAdmin.from(listingTableName).select(columnName).limit(0)
+  return !error
+}
+
+async function getOwnerColumnName(listingTableName, supportedColumns) {
+  if (supportedColumns.has('createdby')) return 'createdby'
+  if (supportedColumns.has('createdBy')) return 'createdBy'
+  if (await listingHasColumn(listingTableName, 'createdBy')) return 'createdBy'
+  return 'createdby'
 }
 
 function filterSupportedFields(payload = {}, supportedColumns = new Set()) {
@@ -80,12 +94,18 @@ export async function GET(request) {
     return NextResponse.json({ listings: fallbackListings }, { status: 200 })
   }
 
+  const listingId = new URL(request.url).searchParams.get('id')
   let query = supabaseAdmin.from(listingTableName).select('*').order('created_at', { ascending: false })
 
   if (role === 'owner') {
-    // Filter by createdby for owners (database uses lowercase)
-    query = query.eq('createdby', user.email)
+    const supportedColumns = await getListingSchemaColumns(listingTableName)
+    const ownerColumn = await getOwnerColumnName(listingTableName, supportedColumns)
+    query = query.eq(ownerColumn, user.email)
     console.log(`Owner listing query for email: ${user.email}`)
+  }
+
+  if (listingId) {
+    query = query.eq('id', listingId)
   }
 
   const { data, error } = await query
@@ -95,7 +115,35 @@ export async function GET(request) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  const listings = (data || []).map(normalizeListingRow)
+  const listingRows = data || []
+  let imageRows = []
+
+  if (listingRows.length) {
+    const { data: images, error: imagesError } = await supabaseAdmin
+      .from('listingImages')
+      .select('listing_id,url')
+      .in('listing_id', listingRows.map((listing) => listing.id))
+
+    if (imagesError) {
+      console.error('Supabase error fetching listing images:', imagesError)
+      return NextResponse.json({ error: 'Unable to load listing images' }, { status: 500 })
+    }
+
+    imageRows = images || []
+  }
+
+  const imagesByListingId = new Map()
+  for (const image of imageRows) {
+    const listingKey = String(image.listing_id)
+    const listingImages = imagesByListingId.get(listingKey) || []
+    listingImages.push(image)
+    imagesByListingId.set(listingKey, listingImages)
+  }
+
+  const listings = listingRows.map((row) => ({
+    ...normalizeListingRow(row),
+    listingImages: imagesByListingId.get(String(row.id)) || [],
+  }))
   console.log(`Fetched ${listings.length} listings for user ${user.email} (role: ${role})`)
   return NextResponse.json({ listings }, { status: 200 })
 }
@@ -110,12 +158,26 @@ export async function POST(request) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
+  if (!supabaseAdmin) {
+    return NextResponse.json({ error: 'Listing storage is not configured' }, { status: 503 })
+  }
+
   const body = await request.json()
+  const address = String(body?.address || '').trim()
+  if (!address) {
+    return NextResponse.json({ error: 'Property address is required' }, { status: 400 })
+  }
+
   const listingTableName = await getListingTableName()
+  if (!listingTableName) {
+    return NextResponse.json({ error: 'The listings table is unavailable' }, { status: 503 })
+  }
+
   const supportedColumns = await getListingSchemaColumns(listingTableName)
 
   const payload = {
-    address: body?.address || '',
+    id: randomUUID(),
+    address,
     title: body?.title || 'University accommodation',
     description: body?.description || '',
     bedroom: Number(body?.bedroom || 1),
@@ -137,6 +199,11 @@ export async function POST(request) {
   console.log(`Creating listing for user ${user.email}:`, { title: payload.title, createdby: payload.createdby })
 
   const payloadWithAliases = { ...payload }
+  const ownerColumn = await getOwnerColumnName(listingTableName, supportedColumns)
+  if (ownerColumn === 'createdBy') {
+    payloadWithAliases.createdBy = payloadWithAliases.createdby
+    delete payloadWithAliases.createdby
+  }
   if (supportedColumns.has('propertytype') && !supportedColumns.has('propertyType')) {
     payloadWithAliases.propertytype = payloadWithAliases.propertyType
     delete payloadWithAliases.propertyType
@@ -151,20 +218,17 @@ export async function POST(request) {
   }
   const safePayload = filterSupportedFields(payloadWithAliases, supportedColumns)
 
-  if (!supabaseAdmin) {
-    return NextResponse.json({ listing: safePayload }, { status: 201 })
-  }
-
-  if (!listingTableName) {
-    return NextResponse.json({ listing: safePayload }, { status: 201 })
-  }
-
   const { data, error } = await supabaseAdmin.from(listingTableName).insert([safePayload]).select()
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  return NextResponse.json({ listing: normalizeListingRow(data?.[0] || null) }, { status: 201 })
+  const listing = data?.[0]
+  if (!listing) {
+    return NextResponse.json({ error: 'The listing could not be saved' }, { status: 500 })
+  }
+
+  return NextResponse.json({ listing: normalizeListingRow(listing) }, { status: 201 })
 }
 
 export async function PUT(request) {
@@ -227,7 +291,7 @@ export async function PUT(request) {
   if (role === 'owner') {
     const { data: listingData, error: listingError } = await supabaseAdmin
       .from(listingTableName)
-      .select('createdby')
+      .select('*')
       .eq('id', listingId)
       .single()
     if (listingError || !listingData) return NextResponse.json({ error: 'Listing not found' }, { status: 404 })
@@ -268,7 +332,7 @@ export async function DELETE(request) {
 
   const { data: listingData, error: listingError } = await supabaseAdmin
     .from(listingTableName)
-    .select('createdby')
+    .select('*')
     .eq('id', listingId)
     .single()
 

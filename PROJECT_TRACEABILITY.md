@@ -6,6 +6,18 @@ This repository is an alpha-stage student housing platform built with Next.js an
 
 The application currently demonstrates the core user experience and operational flows expected for a housing marketplace and accommodation management platform, with additional demo persistence and role-based access controls layered on top.
 
+### Approved research aim and objectives
+
+**Title:** Development of a Big Data Analytic System for Recommending NSFAS-Accredited Student Accommodation.
+
+**Aim:** Develop and implement a big data analytics system for recommending NSFAS-accredited student accommodations.
+
+1. Identify and analyze current technological and literature trends in big data analytics for accommodation recommendation.
+2. Investigate student needs and requirements and develop a framework to address them.
+3. Design, develop, and evaluate a big data analytics system for recommending NSFAS-accredited accommodation.
+
+The current application only partially addresses Objective 3: it implements a deterministic preference-scoring prototype over active rental listings. It does not contain a demonstrated big-data pipeline, authoritative NSFAS accreditation verification, or a recorded empirical recommendation evaluation. This repository also does not by itself establish the literature-review evidence for Objective 1 or participant/findings evidence for Objective 2.
+
 ## 2. Requirements traceability
 
 The table below maps the implemented functionality to the relevant code locations and the current delivery status.
@@ -16,6 +28,9 @@ The table below maps the implemented functionality to the relevant code location
 | Student property browsing and listing discovery | [app/page.js](app/page.js), [app/(routes)/user/_components/UserListing.jsx](app/(routes)/user/_components/UserListing.jsx) | Implemented |
 | Owner listing creation and management | [app/(routes)/add-new-listing/page.jsx](app/(routes)/add-new-listing/page.jsx), [app/(routes)/edit-listing](app/(routes)/edit-listing) | Implemented |
 | Bookings and lease requests | [app/api/bookings/route.js](app/api/bookings/route.js), [app/(routes)/user/page.jsx](app/(routes)/user/page.jsx) | Implemented |
+| Preference-based accommodation ranking | [app/(routes)/user/_components/StudentRecommendations.jsx](app/(routes)/user/_components/StudentRecommendations.jsx), [app/api/listings-public/route.js](app/api/listings-public/route.js) | Implemented as a deterministic heuristic; not big-data or empirically evaluated |
+| NSFAS-accreditation filtering/verification | No authoritative accreditation field/source is wired to recommendation data | Not implemented |
+| Literature trends and student needs/framework evidence | Not evidenced by application code; include the actual research records in the report | Not evidenced in this repository |
 | University workspace and student oversight | [app/(routes)/user/university/students/page.jsx](app/(routes)/user/university/students/page.jsx), [app/(routes)/user/_components/UniversityDashboard.jsx](app/(routes)/user/_components/UniversityDashboard.jsx) | Implemented |
 | Communications and messaging | [app/(routes)/user/messages/page.jsx](app/(routes)/user/messages/page.jsx), [app/api/messages/route.js](app/api/messages/route.js) | Implemented |
 | Student hub operations | [app/api/student-hub/route.js](app/api/student-hub/route.js), [app/(routes)/student-hub/page.jsx](app/(routes)/student-hub/page.jsx) | Implemented |
@@ -27,7 +42,7 @@ The table below maps the implemented functionality to the relevant code location
 
 ### Traceability summary
 
-The alpha build demonstrates the end-to-end user journeys for the platform’s primary personas. The functionality is present in the code and is aligned with a role-based housing management product, but some elements remain demo-oriented and should be treated as prototypes rather than production-ready services.
+The alpha build contains components for listing creation, preference ranking, student lease requests, and owner decisions. The recommendation-to-request journey must be tested with linked student/owner accounts and persisted records before it is reported as an end-to-end result. Secondary student-hub, marketplace, event, university-announcement, visitor/overnight, and broad compliance screens have been removed from primary routes/navigation; direct student-owner messaging remains because it supports applications. The platform and its remaining research gaps must be described as a prototype, not as a completed big-data system.
 
 ## 3. System design
 

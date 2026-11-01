@@ -1,5 +1,5 @@
-import UniversityDashboard from '../_components/UniversityDashboard'
+import { redirect } from 'next/navigation'
 
 export default function UniversityOverviewPage() {
-  return <UniversityDashboard />
+  redirect('/user/university/accommodations')
 }

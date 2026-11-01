@@ -123,7 +123,9 @@ function UserListing() {
             </div>
           </>
         ) : listings.length > 0 ? (
-          listings.map((item) => (
+          listings.map((item) => {
+            const monthlyRent = Number(item.price)
+            return (
             <div key={item.id} className='relative overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition hover:border-violet-300 hover:shadow-md'>
               {/* Status Badge */}
               <span className='absolute left-4 top-4 z-10 rounded-full bg-violet-600 px-2.5 py-1 text-xs font-semibold text-white shadow-sm'>
@@ -136,6 +138,7 @@ function UserListing() {
                   src={item?.listingImages?.[0]?.url || '/placeholder.svg'}
                   width={400}
                   height={170}
+                  unoptimized
                   className='h-full w-full object-cover'
                   alt={item.address || 'Listing image'}
                 />
@@ -146,7 +149,11 @@ function UserListing() {
                 {/* Price and Title */}
                 <div>
                   <h3 className='font-bold text-lg line-clamp-2'>{item.title}</h3>
-                  <h2 className='font-bold text-xl text-violet-600 mt-1'>R{item?.price?.toLocaleString()}</h2>
+                  <h2 className='font-bold text-xl text-violet-600 mt-1'>
+                    {Number.isFinite(monthlyRent) && monthlyRent > 0
+                      ? `R${monthlyRent.toLocaleString()} / month`
+                      : 'Monthly rent not set'}
+                  </h2>
                 </div>
 
                 {/* Address */}
@@ -200,7 +207,8 @@ function UserListing() {
                 </div>
               </div>
             </div>
-          ))
+            )
+          })
         ) : (
           <div className='rounded-xl border border-slate-200 bg-slate-50 p-8 text-center col-span-full'>
             <div className='space-y-3'>

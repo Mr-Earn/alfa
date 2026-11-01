@@ -102,7 +102,7 @@ export async function POST(request) {
     if (listingTableName) {
       const { data: listingData } = await supabaseAdmin
         .from(listingTableName)
-        .select('createdby, title, address')
+        .select('*')
         .eq('id', listingId)
         .maybeSingle();
 

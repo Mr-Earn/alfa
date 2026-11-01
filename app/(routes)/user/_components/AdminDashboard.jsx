@@ -10,8 +10,6 @@ const adminSections = [
   { slug: 'overview', label: 'Overview' },
   { slug: 'bookings', label: 'Booking review' },
   { slug: 'moderation', label: 'Moderation' },
-  { slug: 'communications', label: 'Communications' },
-  { slug: 'student-hub', label: 'Student hub' },
   { slug: 'listings', label: 'Listings' },
   { slug: 'profiles', label: 'Profiles' },
   { slug: 'analytics', label: 'Analytics' },

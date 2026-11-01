@@ -114,7 +114,7 @@ function ViewListing({ params }) {
       </div>
       <div className='mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm'>
         <h3 className='mb-3 text-xl font-semibold'>Request lease agreement</h3>
-        <p className='mb-4 text-sm text-slate-600'>Submit a lease request to the listing owner. The owner can upload the lease document when they approve your request.</p>
+        <p className='mb-4 text-sm text-slate-600'>Submit a lease request to the property owner. The owner reviews and approves or rejects the request; university administrators do not decide applications.</p>
         <label className='block text-sm font-medium text-slate-700'>Message for owner</label>
         <textarea
           value={leaseNote}

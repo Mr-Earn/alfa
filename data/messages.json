@@ -1,6 +1,60 @@
 {
   "messages": [
     {
+      "id": 1791625072841,
+      "sender": "admin@gmail.com",
+      "sender_name": "Admin",
+      "recipient": "university12@gmail.com",
+      "recipient_name": "University 1",
+      "body": "HI",
+      "created_at": "2026-10-10T09:37:52.841Z"
+    },
+    {
+      "id": 1791625054205,
+      "sender": "admin@gmail.com",
+      "sender_name": "Admin",
+      "recipient": "owner1@gmail.com",
+      "recipient_name": "owner1@gmail.com",
+      "body": "HI",
+      "created_at": "2026-10-10T09:37:34.205Z"
+    },
+    {
+      "id": 1791625038026,
+      "sender": "admin@gmail.com",
+      "sender_name": "Admin",
+      "recipient": "student1@gmail.com",
+      "recipient_name": "student1@gmail.com",
+      "body": "HI",
+      "created_at": "2026-10-10T09:37:18.026Z"
+    },
+    {
+      "id": 1791624552542,
+      "sender": "university1@gmail.com",
+      "sender_name": "CUT",
+      "recipient": "student1@gmail.com",
+      "recipient_name": "student1@gmail.com",
+      "body": "HI",
+      "created_at": "2026-10-10T09:29:12.542Z"
+    },
+    {
+      "id": 1791624222535,
+      "sender": "owner1@gmail.com",
+      "sender_name": "owner1",
+      "recipient": "student1@gmail.com",
+      "recipient_name": "student 1",
+      "body": "hii",
+      "created_at": "2026-10-10T09:23:42.535Z"
+    },
+    {
+      "id": 1791228425846,
+      "sender": "owner12@gmail.com",
+      "sender_name": "ENOS",
+      "recipient": "student1@gmail.com",
+      "recipient_name": null,
+      "body": "hi",
+      "created_at": "2026-10-05T19:27:05.846Z"
+    },
+    {
       "id": 1791105001630,
       "sender": "admin@demo.local",
       "sender_name": "Demo Admin",
